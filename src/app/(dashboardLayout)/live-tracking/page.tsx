@@ -1,22 +1,22 @@
 "use client";
 
-import DeliveriesTable from "@/components/page/deliveries/DeliveriesTable";
+import LiveTrackingMap from "@/components/page/liveTracking/LiveTrackingMap";
 
-export default function DeliveriesPage() {
+export default function LiveTrackingPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Page Title & Subtitle */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-[#18181B] tracking-tight">
-          Deliveries
+          Live tracking
         </h1>
         <p className="text-sm text-slate-500 mt-1 font-normal">
-          Monitor the orders from the users.
+          Track every active driver
         </p>
       </div>
 
-      {/* Main Deliveries Table */}
-      <DeliveriesTable />
+      {/* Main Map */}
+      <LiveTrackingMap />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,14 +24,6 @@ export default function SuspendUserModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col items-center text-center relative">
-        {/* Top Right Red Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 size-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm cursor-pointer"
-        >
-          <X className="h-4 w-4 stroke-[2.5]" />
-        </button>
-
         <DialogHeader className="flex flex-col items-center pt-2">
           {/* Red Alert Icon */}
           <div className="size-16 rounded-2xl bg-red-50 border border-red-100 text-red-500 flex items-center justify-center mb-4">
