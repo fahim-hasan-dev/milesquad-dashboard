@@ -2,19 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import BackButton from "@/components/shared/back-button";
+import Link from "next/link";
 
 export function ForgotPasswordForm({
   className,
@@ -23,10 +16,10 @@ export function ForgotPasswordForm({
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     toast.loading("Sending...", {
       id: "forgot-password-toast",
     });
-    e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const payload = {
       email: formData.get("email"),
@@ -44,45 +37,65 @@ export function ForgotPasswordForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="py-4 md:px-20 md:py-12 shadow-none border-none bg-white/60 backdrop-blur-xl">
-        <CardHeader className="text-center">
-          <span className="absolute left-4 top-4">
-            <BackButton />
-          </span>
-          <figure className="flex justify-center pb-4 h-24">
-            <Image src={"/logo.svg"} alt="logo" width={180} height={100} />
-          </figure>
-          <CardTitle className="text-2xl">Forgot password ?</CardTitle>
-          <CardDescription className="pt-2 text-primary-foreground">
-            Please enter your email for verification
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-6">
-              <div className="grid gap-6">
-                {/* email */}
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="me@example.com"
-                    required
-                    className="bg-white border-none shadow-none"
-                  />
-                </div>
-                {/* submit button */}
-                <Button type="submit" className="w-full">
-                  Send Code
-                </Button>
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className={cn("w-full max-w-md mx-auto flex flex-col items-center", className)} {...props}>
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <Image
+          src="/logo.png"
+          alt="Zerokraft Logo"
+          width={220}
+          height={120}
+          priority
+          className="h-auto w-48 md:w-56 object-contain"
+        />
+      </div>
+
+      {/* Header Titles */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+          Reset Password
+        </h1>
+        <p className="text-sm md:text-base text-gray-500 mt-1 font-normal">
+          Enter the email address associated with your account.
+        </p>
+      </div>
+
+      {/* Form Container */}
+      <form onSubmit={handleSubmit} className="w-full space-y-5">
+        {/* Email Field */}
+        <div className="space-y-1.5 text-left">
+          <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+            Email
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Enter your full name"
+            required
+            className="w-full h-12 px-4 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="space-y-3 pt-2">
+          {/* Primary Submit Button */}
+          <Button
+            type="submit"
+            className="w-full h-12 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl text-sm md:text-base transition-colors shadow-none cursor-pointer"
+          >
+            Send Reset OTP
+          </Button>
+
+          {/* Secondary Back to Sign In Button */}
+          <Link
+            href="/login"
+            className="w-full h-12 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-900 border border-amber-400 hover:border-amber-500 font-medium rounded-xl text-sm md:text-base transition-colors cursor-pointer"
+          >
+            Back to Sign In
+          </Link>
+        </div>
+      </form>
     </div>
   );
 }

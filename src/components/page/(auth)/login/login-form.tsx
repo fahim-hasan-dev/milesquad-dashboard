@@ -2,15 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
@@ -24,13 +18,14 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const router = useRouter();
-  const redirect = useSearchParams().get("redirect");
+  const searchParams = useSearchParams();
+  const redirect = searchParams ? searchParams.get("redirect") : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     toast.loading("Logging in...", {
       id: "login",
     });
-    e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const payload = {
       email: formData.get("email"),
@@ -49,92 +44,104 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="py-4 md:px-20 shadow-none border-none bg-white/60 backdrop-blur-xl">
-        <CardHeader className="text-center">
-          <figure className="flex justify-center mb-4 h-24">
-            <Image src={"/logo.svg"} alt="logo" width={180} height={100} />
-          </figure>
-          <CardTitle className="text-2xl">Log in to your account</CardTitle>
-          <CardDescription className="pt-2 text-primary-foreground">
-            Please enter your email and password to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-6">
-              <div className="grid gap-6">
-                {/* email */}
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="me@example.com"
-                    required
-                    className="bg-white border-none shadow-none"
-                  />
-                </div>
-                {/* password */}
-                <div className="grid gap-2">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={`${isPasswordVisible ? "text" : "password"}`}
-                      placeholder="Enter password"
-                      required
-                      className="bg-white border-none shadow-none"
-                    />
-                    <span
-                      onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                      className="text-slate-400 absolute right-3 top-3 cursor-pointer"
-                    >
-                      {isPasswordVisible ? <EyeOffIcon /> : <EyeIcon />}
-                    </span>
-                  </div>
-                </div>
-                {/* remember checkbox */}
-                <div className="flex flex-col md:flex-row justify-between gap-2 items-center">
-                  <div className="flex items-center space-x-2">
-                    {/* <Checkbox id="terms" className="size-5" />
-                    <label
-                      htmlFor="terms"
-                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Remember Password
-                    </label> */}
-                  </div>
-                  <Link
-                    href="forgot-password"
-                    className="text-sm text-primary-foreground font-medium underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                {/* submit button */}
-                <Button type="submit" className="w-full">
-                  Sign In
-                </Button>
-              </div>
-              {/* link to sign up */}
-              {/* <div className="text-center text-sm md:mt-6">
-                Don&apos;t have any account?{" "}
-                <Link
-                  href="/sign-up"
-                  className="font-medium text-primary-foreground hover:underline underline-offset-4"
-                >
-                  Sign Up
-                </Link>
-              </div> */}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className={cn("w-full max-w-md mx-auto flex flex-col items-center", className)} {...props}>
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <Image
+          src="/logo.png"
+          alt="Zerokraft Logo"
+          width={220}
+          height={120}
+          priority
+          className="h-auto w-48 md:w-56 object-contain"
+        />
+      </div>
+
+      {/* Header Titles */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+          Welcome Back
+        </h1>
+        <p className="text-sm md:text-base text-gray-500 mt-1 font-normal">
+          Login to your account
+        </p>
+      </div>
+
+      {/* Form Container */}
+      <form onSubmit={handleSubmit} className="w-full space-y-5">
+        {/* Email Field */}
+        <div className="space-y-1.5 text-left">
+          <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+            Email
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Enter your full name"
+            required
+            className="w-full h-12 px-4 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
+          />
+        </div>
+
+        {/* Password Field */}
+        <div className="space-y-1.5 text-left">
+          <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+            Password
+          </Label>
+          <div className="relative">
+            <Input
+              id="password"
+              name="password"
+              type={isPasswordVisible ? "text" : "password"}
+              placeholder="Enter your full name"
+              required
+              className="w-full h-12 pl-4 pr-11 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
+            />
+            <button
+              type="button"
+              onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              {isPasswordVisible ? (
+                <EyeOffIcon className="h-5 w-5" />
+              ) : (
+                <EyeIcon className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Checkbox and Forgot Password Link */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="remember"
+              className="h-4 w-4 rounded border-gray-300 text-[#10B981] data-[state=checked]:bg-[#10B981] data-[state=checked]:border-[#10B981]"
+            />
+            <label
+              htmlFor="remember"
+              className="text-xs md:text-sm font-medium text-gray-800 select-none cursor-pointer"
+            >
+              Remember Password
+            </label>
+          </div>
+          <Link
+            href="/forgot-password"
+            className="text-xs md:text-sm font-medium text-gray-800 underline underline-offset-4 hover:text-[#10B981] transition-colors"
+          >
+            Forgot Password
+          </Link>
+        </div>
+
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          className="w-full h-12 mt-4 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl text-sm md:text-base transition-colors shadow-none cursor-pointer"
+        >
+          Sign In
+        </Button>
+      </form>
     </div>
   );
 }

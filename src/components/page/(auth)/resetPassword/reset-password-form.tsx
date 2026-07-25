@@ -2,13 +2,6 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
@@ -19,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import Link from "next/link";
 import {
   Form,
   FormControl,
@@ -36,8 +30,8 @@ const FormSchema = z
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Password not matched",
-    path: ["confirmPassword"], // Error will be shown on the confirmPassword field
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });
 
 export function ResetPasswordForm({
@@ -48,7 +42,7 @@ export function ResetPasswordForm({
   const [isConfPasswordVisible, setIsConfPasswordVisible] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams?.get("auth");
+  const token = searchParams ? searchParams.get("auth") : null;
 
   // define form
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -61,7 +55,7 @@ export function ResetPasswordForm({
 
   // handle form submit
   const onSubmit = async (values: z.infer<typeof FormSchema>) => {
-    toast.loading("Reseting...", {
+    toast.loading("Resetting...", {
       id: "reset-password-toast",
     });
     console.log(values, token);
@@ -69,7 +63,7 @@ export function ResetPasswordForm({
     try {
       //! perform your api call here...
 
-      toast.success("Reseted successfully", {
+      toast.success("Password reset successfully", {
         id: "reset-password-toast",
       });
       router.push(`/login`);
@@ -79,100 +73,122 @@ export function ResetPasswordForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="py-4 md:px-20 md:py-12 shadow-none border-none bg-white/60 backdrop-blur-xl">
-        <CardHeader className="text-center">
-          <figure className="flex justify-center mb-4 h-20">
-            <Image src={"/logo.svg"} alt="logo" width={180} height={100} />
-          </figure>
-          <CardTitle className="text-2xl">Reset Password</CardTitle>
-          <CardDescription className="pt-2 text-primary-foreground">
-            Please enter your new password to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="grid gap-6">
-                {/* new password */}
-                <FormField
-                  control={form.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center">
-                        <Label htmlFor="password">New Password</Label>
-                      </div>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={`${isPasswordVisible ? "text" : "password"}`}
-                            placeholder="Enter password"
-                            className="bg-white border-none shadow-none"
-                            {...field}
-                          />
-                          <span
-                            onClick={() =>
-                              setIsPasswordVisible(!isPasswordVisible)
-                            }
-                            className="text-slate-400 absolute right-3 top-3 cursor-pointer"
-                          >
-                            {isPasswordVisible ? <EyeOffIcon /> : <EyeIcon />}
-                          </span>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {/* confirm new password */}
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center">
-                        <Label htmlFor="conf-password">Confirm Password</Label>
-                      </div>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            id="conf-password"
-                            type={`${
-                              isConfPasswordVisible ? "text" : "password"
-                            }`}
-                            placeholder="Enter password"
-                            className="bg-white border-none shadow-none"
-                            {...field}
-                          />
-                          <span
-                            onClick={() =>
-                              setIsConfPasswordVisible(!isConfPasswordVisible)
-                            }
-                            className="text-slate-400 absolute right-3 top-3 cursor-pointer"
-                          >
-                            {isConfPasswordVisible ? (
-                              <EyeOffIcon />
-                            ) : (
-                              <EyeIcon />
-                            )}
-                          </span>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {/* submit button */}
-                <Button type="submit" className="w-full">
-                  Reset
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+    <div className={cn("w-full max-w-md mx-auto flex flex-col items-center", className)} {...props}>
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <Image
+          src="/logo.png"
+          alt="Zerokraft Logo"
+          width={220}
+          height={120}
+          priority
+          className="h-auto w-48 md:w-56 object-contain"
+        />
+      </div>
+
+      {/* Header Titles */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+          Set New Password
+        </h1>
+        <p className="text-sm md:text-base text-gray-500 mt-1 font-normal">
+          Create a new password for your account.
+        </p>
+      </div>
+
+      {/* Form Container */}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-5">
+          {/* New Password Field */}
+          <FormField
+            control={form.control}
+            name="newPassword"
+            render={({ field }) => (
+              <FormItem className="space-y-1.5 text-left">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={isPasswordVisible ? "text" : "password"}
+                      placeholder="Enter your password"
+                      className="w-full h-12 pl-4 pr-11 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                    >
+                      {isPasswordVisible ? (
+                        <EyeOffIcon className="h-5 w-5" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Confirm Password Field */}
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem className="space-y-1.5 text-left">
+                <Label htmlFor="conf-password" className="text-sm font-medium text-gray-700">
+                  Confirm Password
+                </Label>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      id="conf-password"
+                      type={isConfPasswordVisible ? "text" : "password"}
+                      placeholder="Re-enter your password"
+                      className="w-full h-12 pl-4 pr-11 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsConfPasswordVisible(!isConfPasswordVisible)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                    >
+                      {isConfPasswordVisible ? (
+                        <EyeOffIcon className="h-5 w-5" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Buttons */}
+          <div className="space-y-3 pt-2">
+            <Button
+              type="submit"
+              className="w-full h-12 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl text-sm md:text-base transition-colors shadow-none cursor-pointer"
+            >
+              Confirm
+            </Button>
+
+            <Link
+              href="/login"
+              className="w-full h-12 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-900 border border-[#10B981] font-medium rounded-xl text-sm md:text-base transition-colors cursor-pointer"
+            >
+              Back to Sign In
+            </Link>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }
