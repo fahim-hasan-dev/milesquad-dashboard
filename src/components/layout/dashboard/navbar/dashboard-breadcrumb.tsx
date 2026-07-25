@@ -2,36 +2,24 @@
 
 import { usePathname } from "next/navigation";
 import { capitalizeSentence } from "@/utils/capitalizeSentence";
-import BackButton from "../../../shared/back-button";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 const DashboardBreadcrumb = () => {
   const pathname = usePathname();
   const pathSegments = pathname.split("/").filter(Boolean);
-  const isDynamicId = (segment: string): boolean => {
-    // Check if the segment contains "$", "%", or any number (0-9)
-    return /[$%0-9]/.test(segment);
-  };
-
-  // Filter out solid route segments
-  const filteredSegments = pathSegments.filter(
-    (segment) => !isDynamicId(segment)
-  );
-  const lastSegment = filteredSegments[filteredSegments.length - 1];
+  const currentSegment = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : "Overview";
 
   return (
-    <Breadcrumb>
-      <BreadcrumbList>
-        <BreadcrumbItem className="hidden lg:block">
-          {filteredSegments?.length > 2 && <BackButton />}
-        </BreadcrumbItem>
-        <BreadcrumbItem>
-          <BreadcrumbPage className="md:text-lg lg:text-xl font-semibold">
-            {capitalizeSentence(lastSegment)}
-          </BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
+    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-slate-400">
+      <Link href="/" className="hover:text-slate-600 transition-colors">
+        Home Page
+      </Link>
+      <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+      <span className="text-slate-700 font-semibold">
+        {capitalizeSentence(currentSegment)}
+      </span>
+    </div>
   );
 };
 

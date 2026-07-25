@@ -7,16 +7,15 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
-        // Allow all URLs from https protocols
         protocol: "https",
         hostname: "**",
         port: "",
         pathname: "**",
       },
       {
-        // Allow all URLs from http protocols
         protocol: "http",
         hostname: "**",
         port: "",

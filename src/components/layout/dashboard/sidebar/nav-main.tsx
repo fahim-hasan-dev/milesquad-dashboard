@@ -11,56 +11,54 @@ import { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function NavMain({
-  items,
-}: {
+export interface NavGroup {
+  groupLabel: string;
   items: {
     title: string;
     url: string;
-    icon?: LucideIcon;
-    isActive?: boolean;
-    items?: {
-      title: string;
-      url: string;
-    }[];
+    icon: LucideIcon;
   }[];
-}) {
+}
+
+export function NavMain({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
 
   return (
-    <SidebarGroup className="gap-4">
-      <SidebarGroupLabel className="flex items-center gap-2 text-zinc-400">
-        <span>Menu</span> <span className="flex-1 bg-gray-200 h-0.5"></span>
-      </SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => {
-          const isActive = item.url === pathname;
+    <div className="space-y-4 px-2">
+      {groups.map((group) => (
+        <SidebarGroup key={group.groupLabel} className="p-0">
+          <SidebarGroupLabel className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
+            {group.groupLabel}
+          </SidebarGroupLabel>
+          <SidebarMenu className="gap-1">
+            {group.items.map((item) => {
+              const isActive =
+                item.url === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.url);
 
-          return (
-            <Link href={item.url} key={item.title}>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  className={`${
-                    isActive
-                      ? "bg-primary text-white hover:bg-primary hover:text-white active:bg-primary-foreground active:text-white"
-                      : ""
-                  }`}
-                >
-                  {item.icon && (
-                    <span className="icon">
-                      {/* Pass 'fill' based on active state */}
-                      {item.icon && <item.icon />}
-                    </span>
-                  )}
-
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </Link>
-          );
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-[#10B981] text-white hover:bg-[#059669] hover:text-white"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+                    }`}
+                  >
+                    <Link href={item.url} className="flex items-center gap-3 w-full">
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </div>
   );
 }

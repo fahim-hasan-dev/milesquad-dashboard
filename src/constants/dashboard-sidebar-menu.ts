@@ -1,60 +1,102 @@
 import {
-  Blocks,
-  ChartNoAxesCombined,
-  Handshake,
-  MessagesSquare,
-  Settings,
+  LayoutDashboard,
+  Users,
+  Bike,
+  Building2,
+  PackageCheck,
+  MapPin,
+  Tag,
+  ArrowLeftRight,
+  Headphones,
   Shield,
-  UsersRound,
+  HelpCircle,
 } from "lucide-react";
 
-export const sidebarMenu = {
-  navMain: [
-    {
-      title: "Analytics",
-      url: "/",
-      icon: ChartNoAxesCombined,
-      isActive: true,
-    },
-    {
-      title: "Products",
-      url: "/products",
-      icon: Blocks,
-    },
-    {
-      title: "Users",
-      url: "/users",
-      icon: UsersRound,
-    },
-    {
-      title: "Moderation",
-      url: "/moderation",
-      icon: Shield,
-    },
-    {
-      title: "Messaging",
-      url: "/messaging",
-      icon: MessagesSquare,
-    },
-    {
-      title: "Support",
-      url: "/support",
-      icon: Handshake,
-    },
-  ],
-  settings: [
-    {
-      name: "Settings",
-      url: "/settings",
-      icon: Settings,
-    },
-  ],
-};
+export const sidebarMenuGroups = [
+  {
+    groupLabel: "MAIN",
+    items: [
+      {
+        title: "Overview",
+        url: "/",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    groupLabel: "PLATFORM MANAGEMENT",
+    items: [
+      {
+        title: "Users",
+        url: "/users",
+        icon: Users,
+      },
+      {
+        title: "Riders",
+        url: "/riders",
+        icon: Bike,
+      },
+      {
+        title: "Partners",
+        url: "/partners",
+        icon: Building2,
+      },
+    ],
+  },
+  {
+    groupLabel: "OPERATIONS",
+    items: [
+      {
+        title: "Deliveries",
+        url: "/products",
+        icon: PackageCheck,
+      },
+      {
+        title: "Live tracking",
+        url: "/live-tracking",
+        icon: MapPin,
+      },
+    ],
+  },
+  {
+    groupLabel: "FINANCE",
+    items: [
+      {
+        title: "Pricing",
+        url: "/pricing",
+        icon: Tag,
+      },
+      {
+        title: "Transactions",
+        url: "/transactions",
+        icon: ArrowLeftRight,
+      },
+    ],
+  },
+  {
+    groupLabel: "HELP & SUPPORT",
+    items: [
+      {
+        title: "Help and support",
+        url: "/support",
+        icon: Headphones,
+      },
+      {
+        title: "Legal",
+        url: "/legal",
+        icon: Shield,
+      },
+      {
+        title: "FAQ",
+        url: "/faq",
+        icon: HelpCircle,
+      },
+    ],
+  },
+];
 
 export const profileData = {
-  name: "Rahad Ullah",
-  email: "rahadullah10@gmail.com",
+  name: "ABDOU",
   role: "Admin",
-  avatar:
-    "https://images.unsplash.com/photo-1633332755192-727a05c4013d?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8dXNlcnxlbnwwfHwwfHx8MA%3D%3D",
+  initial: "D",
 };

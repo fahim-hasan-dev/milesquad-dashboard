@@ -1,12 +1,11 @@
 import DashboardBreadcrumb from "@/components/layout/dashboard/navbar/dashboard-breadcrumb";
-import NavUserWrapper from "@/components/layout/dashboard/navbar/nav-user-wrapper";
 import { AppSidebar } from "@/components/layout/dashboard/sidebar/app-sidebar";
-import SearchBar from "@/components/shared/SearchBar";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Bell } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -14,29 +13,44 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider className="no-scrollbar">
-      {/* dashboard sidebar */}
-      <AppSidebar className="p-4 pr-0" />
-      <SidebarInset className="bg-transparent p-4 gap-4">
-        {/* dashboard header */}
-        <header className="flex h-20 py-2 bg-white rounded-xl border shadow-sm shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-20 sticky top-4 z-50">
-          <div className="flex flex-nowrap items-center gap-2 px-4">
-            <SidebarTrigger className="xl:hidden -ml-1" />
+    <SidebarProvider className="no-scrollbar bg-[#F8FAFC]">
+      {/* App Sidebar */}
+      <AppSidebar />
+
+      <SidebarInset className="bg-[#F8FAFC] min-h-screen flex flex-col p-4 md:p-6 lg:p-8 gap-6">
+        {/* Top Header */}
+        <header className="flex h-12 shrink-0 items-center justify-between gap-4 transition-all">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="xl:hidden" />
             <DashboardBreadcrumb />
           </div>
-          {/* searchbar */}
-          <div className="flex justify-center items-center gap-4 md:gap-6">
-            <SearchBar />
-            {/* notification */}
-            {/* <Button size={"icon"} className="rounded-full">
-              <Bell />
-            </Button> */}
-            {/* user dropdown */}
-            <NavUserWrapper />
+
+          <div className="flex items-center gap-4">
+            {/* Notification Bell Icon */}
+            <button className="relative w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
+              <Bell className="h-4 w-4" />
+              <span className="absolute top-2 right-2 size-2 bg-[#10B981] rounded-full border border-white" />
+            </button>
+
+            {/* Admin Profile Pill */}
+            <div className="flex items-center gap-2.5 bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
+              <div className="text-right leading-tight">
+                <span className="block text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Admin
+                </span>
+                <span className="block text-xs font-bold text-slate-800">
+                  ABDOU
+                </span>
+              </div>
+              <div className="size-8 rounded-full bg-[#10B981] text-white font-extrabold text-sm flex items-center justify-center">
+                D
+              </div>
+            </div>
           </div>
         </header>
-        {/* dashboard content */}
-        <div className="rounded-xl flex-1">{children}</div>
+
+        {/* Dashboard Content */}
+        <main className="flex-1 w-full">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

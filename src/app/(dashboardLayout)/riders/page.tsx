@@ -1,8 +1,8 @@
 "use client";
 
-import UsersTable from "@/components/page/users/UsersTable";
+import RidersTable from "@/components/page/riders/RidersTable";
 
-export default function UsersPage() {
+export default function RidersPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Page Title & Subtitle */}
@@ -15,8 +15,8 @@ export default function UsersPage() {
         </p>
       </div>
 
-      {/* Main Table */}
-      <UsersTable />
+      {/* Main Riders Table */}
+      <RidersTable />
     </div>
   );
 }
