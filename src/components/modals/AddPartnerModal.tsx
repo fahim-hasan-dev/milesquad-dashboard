@@ -66,7 +66,7 @@ export default function AddPartnerModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6 relative">
+      <DialogContent className="max-w-lg bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6">
         {/* Modal Header */}
         <DialogHeader className="text-left space-y-1">
           <DialogTitle className="text-xl font-bold text-[#18181B] tracking-tight">

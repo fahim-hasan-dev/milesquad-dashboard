@@ -23,7 +23,7 @@ export default function SuspendUserModal({
 }: SuspendUserModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col items-center text-center relative">
+      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col items-center text-center">
         <DialogHeader className="flex flex-col items-center pt-2">
           {/* Red Alert Icon */}
           <div className="size-16 rounded-2xl bg-red-50 border border-red-100 text-red-500 flex items-center justify-center mb-4">

@@ -41,7 +41,7 @@ export default function AddFAQModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6 relative">
+      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6">
         {/* Header */}
         <DialogHeader className="text-center">
           <DialogTitle className="text-xl font-bold text-slate-900 tracking-tight text-center">

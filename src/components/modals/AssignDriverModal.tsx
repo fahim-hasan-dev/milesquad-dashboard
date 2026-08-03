@@ -78,7 +78,7 @@ export default function AssignDriverModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6 relative">
+      <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6">
         {/* Modal Header */}
         <DialogHeader className="text-left space-y-0.5">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
