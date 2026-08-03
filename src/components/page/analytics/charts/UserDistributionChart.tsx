@@ -4,9 +4,9 @@ import { Users } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-const distributionData = [
+const defaultDistributionData = [
   { name: "Driver", value: 65, fill: "#10B981" },
-  { name: "User", value: 20, fill: "#E2E8F0" },
+  { name: "User", value: 35, fill: "#E2E8F0" },
 ];
 
 const chartConfig = {
@@ -20,7 +20,17 @@ const chartConfig = {
   },
 };
 
-export default function UserDistributionChart() {
+interface UserDistributionChartProps {
+  driverPercent?: number;
+  userPercent?: number;
+  data?: { name: string; value: number; fill: string }[];
+}
+
+export default function UserDistributionChart({
+  driverPercent = 65,
+  userPercent = 35,
+  data = defaultDistributionData,
+}: UserDistributionChartProps) {
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between h-full">
       {/* Top Header */}
@@ -38,7 +48,7 @@ export default function UserDistributionChart() {
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie
-                data={distributionData}
+                data={data}
                 dataKey="value"
                 nameKey="name"
                 innerRadius={60}
@@ -47,7 +57,7 @@ export default function UserDistributionChart() {
                 startAngle={90}
                 endAngle={-270}
               >
-                {distributionData.map((entry, index) => (
+                {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Pie>
@@ -61,13 +71,13 @@ export default function UserDistributionChart() {
         <div className="flex items-center gap-2">
           <span className="size-3 rounded-full bg-[#10B981]" />
           <span className="text-xs font-semibold text-slate-500">Driver</span>
-          <span className="text-xs font-bold text-slate-900 ml-1">65%</span>
+          <span className="text-xs font-bold text-slate-900 ml-1">{driverPercent}%</span>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="size-3 rounded-full bg-slate-300" />
           <span className="text-xs font-semibold text-slate-500">User</span>
-          <span className="text-xs font-bold text-slate-900 ml-1">20%</span>
+          <span className="text-xs font-bold text-slate-900 ml-1">{userPercent}%</span>
         </div>
       </div>
     </div>

@@ -2,44 +2,49 @@
 
 import { Copy, FileSpreadsheet } from "lucide-react";
 import toast from "react-hot-toast";
+import { OrderItem } from "@/data/overviewData";
 
-const orders = [
+const defaultOrders: OrderItem[] = [
   {
     sl: 1,
     bookingId: "FM-BKG-000050",
-    customerName: "Donald",
-    providerContact: "27791135003",
-    price: "R3600",
-    operationalFee: "R360",
-    platformFee: "R180",
+    customerName: "Donald Trump",
+    providerContact: "+27 791 135 003",
+    price: "$3,600",
+    operationalFee: "$360",
+    platformFee: "$180",
     bookingDate: "11 Jun 2026",
     status: "DELIVERED",
   },
   {
     sl: 2,
     bookingId: "FM-BKG-000049",
-    customerName: "Donald",
-    providerContact: "27656648349",
-    price: "R200",
-    operationalFee: "R20",
-    platformFee: "R10",
-    bookingDate: "11 Jun 2026",
+    customerName: "Sarah Connor",
+    providerContact: "+27 656 648 349",
+    price: "$1,250",
+    operationalFee: "$125",
+    platformFee: "$62.50",
+    bookingDate: "08 Jun 2026",
     status: "DELIVERED",
   },
   {
     sl: 3,
     bookingId: "FM-BKG-000048",
-    customerName: "Donald",
-    providerContact: "27656648349",
-    price: "R200",
-    operationalFee: "R20",
-    platformFee: "R10",
-    bookingDate: "11 Jun 2026",
+    customerName: "Marcus Wei",
+    providerContact: "+27 824 551 902",
+    price: "$850",
+    operationalFee: "$85",
+    platformFee: "$42.50",
+    bookingDate: "04 May 2026",
     status: "DELIVERED",
   },
 ];
 
-export default function CompletedOrdersTable() {
+interface CompletedOrdersTableProps {
+  orders?: OrderItem[];
+}
+
+export default function CompletedOrdersTable({ orders = defaultOrders }: CompletedOrdersTableProps) {
   const handleCopy = (id: string) => {
     navigator.clipboard.writeText(id);
     toast.success(`Copied ${id}`);

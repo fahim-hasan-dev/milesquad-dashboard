@@ -3,11 +3,11 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-const deliveriesData = [
-  { name: "Completed", value: 21987, percentage: "89.1%", fill: "#10B981" },
-  { name: "In Progress", value: 1245, percentage: "5.0%", fill: "#3B82F6" },
-  { name: "Cancelled", value: 876, percentage: "3.6%", fill: "#EF4444" },
-  { name: "Failed", value: 574, percentage: "2.3%", fill: "#F59E0B" },
+const defaultDeliveriesData = [
+  { name: "Completed", value: 3420, percentage: "89.1%", fill: "#10B981" },
+  { name: "In Progress", value: 192, percentage: "5.0%", fill: "#3B82F6" },
+  { name: "Cancelled", value: 138, percentage: "3.6%", fill: "#EF4444" },
+  { name: "Failed", value: 90, percentage: "2.3%", fill: "#F59E0B" },
 ];
 
 const chartConfig = {
@@ -17,7 +17,15 @@ const chartConfig = {
   failed: { label: "Failed", color: "#F59E0B" },
 };
 
-export default function DeliveriesOverviewChart() {
+interface DeliveriesOverviewChartProps {
+  total?: number;
+  data?: { name: string; value: number; percentage: string; fill: string }[];
+}
+
+export default function DeliveriesOverviewChart({
+  total = 3840,
+  data = defaultDeliveriesData,
+}: DeliveriesOverviewChartProps) {
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between h-full">
       <h3 className="text-base font-bold text-slate-800 mb-4">Deliveries Overview</h3>
@@ -30,7 +38,7 @@ export default function DeliveriesOverviewChart() {
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                 <Pie
-                  data={deliveriesData}
+                  data={data}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={52}
@@ -39,7 +47,7 @@ export default function DeliveriesOverviewChart() {
                   startAngle={90}
                   endAngle={-270}
                 >
-                  {deliveriesData.map((entry, index) => (
+                  {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
@@ -49,14 +57,16 @@ export default function DeliveriesOverviewChart() {
 
           {/* Center Label */}
           <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center text-center">
-            <span className="text-base font-black text-slate-900 leading-tight">24,682</span>
+            <span className="text-base font-black text-slate-900 leading-tight">
+              {total.toLocaleString()}
+            </span>
             <span className="text-[11px] font-medium text-slate-400">Total</span>
           </div>
         </div>
 
         {/* Legend */}
         <div className="space-y-3">
-          {deliveriesData.map((item) => (
+          {data.map((item) => (
             <div key={item.name} className="flex items-center gap-3">
               <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
               <div>
