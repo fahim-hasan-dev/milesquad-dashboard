@@ -8,10 +8,10 @@ export default function RidersPage() {
       {/* Page Title & Subtitle */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-          User Management
+          Rider Management
         </h1>
         <p className="text-sm text-slate-500 mt-1 font-normal">
-          Manage Grocerymarkets and Suppliers. Approve registrations and monitor activity.
+          Manage drivers, vehicles, registration approvals, and monitor platform delivery activity.
         </p>
       </div>
 
