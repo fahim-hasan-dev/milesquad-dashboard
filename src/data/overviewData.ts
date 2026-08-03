@@ -35,7 +35,19 @@ export interface OverviewDataset {
     data: { name: string; value: number; fill: string }[];
   };
   completedOrders: OrderItem[];
+  recentOrders?: OrderItem[];
 }
+
+const sampleRecentOrders: OrderItem[] = [
+  { sl: 1, bookingId: "FM-BKG-000050", customerName: "Donald Trump", providerContact: "+27 791 135 003", price: "$3,600", operationalFee: "$360", platformFee: "$180", bookingDate: "11 Jun 2026", status: "DELIVERED" },
+  { sl: 2, bookingId: "FM-BKG-000049", customerName: "Sarah Connor", providerContact: "+27 656 648 349", price: "$1,250", operationalFee: "$125", platformFee: "$62.50", bookingDate: "08 Jun 2026", status: "IN TRANSIT" },
+  { sl: 3, bookingId: "FM-BKG-000048", customerName: "Marcus Wei", providerContact: "+27 824 551 902", price: "$850", operationalFee: "$85", platformFee: "$42.50", bookingDate: "04 Jun 2026", status: "PENDING" },
+  { sl: 4, bookingId: "FM-BKG-000047", customerName: "Emma Watson", providerContact: "+27 712 990 411", price: "$2,100", operationalFee: "$210", platformFee: "$105", bookingDate: "28 May 2026", status: "DELIVERED" },
+  { sl: 5, bookingId: "FM-BKG-000046", customerName: "David Kim", providerContact: "+27 839 201 114", price: "$1,750", operationalFee: "$175", platformFee: "$87.50", bookingDate: "25 May 2026", status: "CANCELLED" },
+  { sl: 6, bookingId: "FM-BKG-000045", customerName: "Jessica Alba", providerContact: "+27 721 883 490", price: "$2,850", operationalFee: "$285", platformFee: "$142.50", bookingDate: "20 May 2026", status: "IN TRANSIT" },
+  { sl: 7, bookingId: "FM-BKG-000044", customerName: "Michael Scott", providerContact: "+27 614 332 990", price: "$1,900", operationalFee: "$190", platformFee: "$95", bookingDate: "15 May 2026", status: "DELIVERED" },
+  { sl: 8, bookingId: "FM-BKG-000043", customerName: "Priya Patel", providerContact: "+27 799 441 203", price: "$3,100", operationalFee: "$310", platformFee: "$155", bookingDate: "10 May 2026", status: "PENDING" },
+];
 
 export const overviewDataByYearAndPeriod: Record<string, Record<string, OverviewDataset>> = {
   "2026": {
@@ -83,12 +95,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 35, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000050", customerName: "Donald Trump", providerContact: "+27 791 135 003", price: "$3,600", operationalFee: "$360", platformFee: "$180", bookingDate: "11 Jun 2026", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000049", customerName: "Sarah Connor", providerContact: "+27 656 648 349", price: "$1,250", operationalFee: "$125", platformFee: "$62.50", bookingDate: "08 Jun 2026", status: "DELIVERED" },
-        { sl: 3, bookingId: "FM-BKG-000048", customerName: "Marcus Wei", providerContact: "+27 824 551 902", price: "$850", operationalFee: "$85", platformFee: "$42.50", bookingDate: "04 May 2026", status: "DELIVERED" },
-        { sl: 4, bookingId: "FM-BKG-000047", customerName: "Emma Watson", providerContact: "+27 712 990 411", price: "$2,100", operationalFee: "$210", platformFee: "$105", bookingDate: "28 Apr 2026", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
     "Jul - Dec": {
       stats: {
@@ -134,12 +142,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 32, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000088", customerName: "David Kim", providerContact: "+27 839 201 114", price: "$4,200", operationalFee: "$420", platformFee: "$210", bookingDate: "15 Dec 2026", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000087", customerName: "Jessica Alba", providerContact: "+27 721 883 490", price: "$2,850", operationalFee: "$285", platformFee: "$142.50", bookingDate: "20 Nov 2026", status: "DELIVERED" },
-        { sl: 3, bookingId: "FM-BKG-000086", customerName: "Michael Scott", providerContact: "+27 614 332 990", price: "$1,900", operationalFee: "$190", platformFee: "$95", bookingDate: "05 Oct 2026", status: "DELIVERED" },
-        { sl: 4, bookingId: "FM-BKG-000085", customerName: "Priya Patel", providerContact: "+27 799 441 203", price: "$3,100", operationalFee: "$310", platformFee: "$155", bookingDate: "18 Aug 2026", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
   },
   "2025": {
@@ -187,11 +191,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 38, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000030", customerName: "Robert Downey", providerContact: "+27 823 441 002", price: "$2,400", operationalFee: "$240", platformFee: "$120", bookingDate: "20 May 2025", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000029", customerName: "Lisa Kudrow", providerContact: "+27 714 552 119", price: "$1,800", operationalFee: "$180", platformFee: "$90", bookingDate: "14 Apr 2025", status: "DELIVERED" },
-        { sl: 3, bookingId: "FM-BKG-000028", customerName: "James Bond", providerContact: "+27 633 118 700", price: "$3,200", operationalFee: "$320", platformFee: "$160", bookingDate: "02 Mar 2025", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
     "Jul - Dec": {
       stats: {
@@ -237,10 +238,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 36, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000042", customerName: "Carlos Mendez", providerContact: "+27 788 119 220", price: "$2,900", operationalFee: "$290", platformFee: "$145", bookingDate: "18 Dec 2025", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000041", customerName: "Emma Watson", providerContact: "+27 612 990 411", price: "$2,100", operationalFee: "$210", platformFee: "$105", bookingDate: "05 Nov 2025", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
   },
   "2024": {
@@ -288,10 +287,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 40, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000012", customerName: "Arthur Pendelton", providerContact: "+27 821 002 991", price: "$1,500", operationalFee: "$150", platformFee: "$75", bookingDate: "12 May 2024", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000011", customerName: "Nancy Drew", providerContact: "+27 713 220 881", price: "$1,200", operationalFee: "$120", platformFee: "$60", bookingDate: "03 Apr 2024", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
     "Jul - Dec": {
       stats: {
@@ -325,7 +322,7 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
         data: [
           { name: "Delivery Fees", value: 19970.4, percentage: "63.6%", formatted: "$19,970.40", fill: "#6366F1" },
           { name: "Service Fees", value: 6594.0, percentage: "21.0%", formatted: "$6,594.00", fill: "#1E40AF" },
-          { name: "Surge Fees", value: 3140.0, percentage: "10.0%", formatted: "$3,140.00", fill: "#F59E0B" },
+          { name: "Surge Fees", value: 3140.0, percentage: "10.0%", formatted: "$3,40.00", fill: "#F59E0B" },
           { name: "Other Fees", value: 1695.6, percentage: "5.4%", formatted: "$1,695.60", fill: "#10B981" },
         ],
       },
@@ -337,10 +334,8 @@ export const overviewDataByYearAndPeriod: Record<string, Record<string, Overview
           { name: "User", value: 39, fill: "#E2E8F0" },
         ],
       },
-      completedOrders: [
-        { sl: 1, bookingId: "FM-BKG-000021", customerName: "Victor Hugo", providerContact: "+27 829 441 800", price: "$2,200", operationalFee: "$220", platformFee: "$110", bookingDate: "10 Nov 2024", status: "DELIVERED" },
-        { sl: 2, bookingId: "FM-BKG-000020", customerName: "Clara Oswald", providerContact: "+27 719 338 112", price: "$1,600", operationalFee: "$160", platformFee: "$80", bookingDate: "25 Aug 2024", status: "DELIVERED" },
-      ],
+      completedOrders: sampleRecentOrders,
+      recentOrders: sampleRecentOrders,
     },
   },
 };

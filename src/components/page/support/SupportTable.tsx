@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -15,6 +14,7 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,75 +23,109 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
+import {
+  masterSupportTicketsList,
+  SupportTicketRecord,
+} from "@/demoData/supportManagementData";
 
-const initialRequests = [
-  {
-    id: "SUP-001",
-    userName: "Metro Mart",
-    userLocation: "Downtown District",
-    userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
-    title: "ID Card Issue",
-    contact: "+16546565656",
-    status: "Solved",
-  },
-  {
-    id: "SUP-002",
-    userName: "Fresh Farms LLC",
-    userLocation: "Valley Region",
-    userAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=300",
-    title: "ID Card Issue",
-    contact: "+16546565656",
-    status: "Solved",
-  },
-  {
-    id: "SUP-003",
-    userName: "City Grocers",
-    userLocation: "Westside",
-    userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=300",
-    title: "ID Card Issue",
-    contact: "+16546565656",
-    status: "Solved",
-  },
-  {
-    id: "SUP-004",
-    userName: "Grain Masters",
-    userLocation: "North Hills",
-    userAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=300",
-    title: "ID Card Issue",
-    contact: "+16546565656",
-    status: "Pending",
-  },
-];
+const ITEMS_PER_PAGE = 10;
 
 export default function SupportTable() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState<SupportTicketRecord[]>(masterSupportTicketsList);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
 
   const handleRemove = (id: string) => {
     setRequests((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Support request removed");
+    toast.success("Support ticket removed");
   };
 
-  const filteredRequests = requests.filter(
-    (r) =>
+  const filteredRequests = requests.filter((r) => {
+    const matchesSearch =
       r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.userLocation.toLowerCase().includes(searchTerm.toLowerCase())
+      r.userLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "All" || r.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // Calculate pagination (10 per page)
+  const totalItems = filteredRequests.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = filteredRequests.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
   );
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
-      {/* Top Search Bar */}
-      <div className="relative w-full max-w-sm">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search anything..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#10B981] placeholder:text-slate-300 shadow-sm"
-        />
+      {/* Search Bar & Status Filter */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Search Input */}
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search anything..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#10B981] placeholder:text-slate-300 shadow-sm"
+          />
+        </div>
+
+        {/* Filter Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+            <span>{statusFilter}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              onClick={() => { setStatusFilter("All"); setCurrentPage(1); }}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              All
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { setStatusFilter("Pending"); setCurrentPage(1); }}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Pending
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { setStatusFilter("Solved"); setCurrentPage(1); }}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Solved
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Support Table Card */}
@@ -108,128 +142,131 @@ export default function SupportTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRequests.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                  {/* USER */}
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-3">
-                      <Image
-                        src={row.userAvatar}
-                        alt={row.userName}
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                      />
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                          {row.userName}
-                        </h4>
-                        <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
-                          <MapPin className="h-3 w-3 text-slate-300" />
-                          <span>{row.userLocation}</span>
+              {paginatedRequests.length > 0 ? (
+                paginatedRequests.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* USER */}
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={row.userAvatar}
+                          alt={row.userName}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                        />
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                            {row.userName}
+                          </h4>
+                          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
+                            <MapPin className="h-3 w-3 text-slate-300" />
+                            <span>{row.userLocation}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* TITLE */}
-                  <td className="py-4 px-4 text-xs font-bold text-slate-900">
-                    {row.title}
-                  </td>
+                    {/* TITLE */}
+                    <td className="py-4 px-4 text-xs font-bold text-slate-900">
+                      {row.title}
+                    </td>
 
-                  {/* CONTACT */}
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Phone className="h-3.5 w-3.5 text-slate-300" />
-                      <span>{row.contact}</span>
-                    </div>
-                  </td>
+                    {/* CONTACT */}
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                        <Phone className="h-3.5 w-3.5 text-slate-300" />
+                        <span>{row.contact}</span>
+                      </div>
+                    </td>
 
-                  {/* STATUS */}
-                  <td className="py-4 px-4">
-                    {row.status === "Solved" ? (
-                      <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3.5 py-1 rounded-full">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>Solved</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3.5 py-1 rounded-full">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>Pending</span>
-                      </span>
-                    )}
-                  </td>
+                    {/* STATUS */}
+                    <td className="py-4 px-4">
+                      {row.status === "Solved" ? (
+                        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3.5 py-1 rounded-full border border-emerald-200">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Solved</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3.5 py-1 rounded-full border border-amber-200">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                    </td>
 
-                  {/* ACTIONS */}
-                  <td className="py-4 px-4 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
-                        <DropdownMenuItem asChild className="cursor-pointer">
-                          <Link href={`/support/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
-                            <Eye className="h-4 w-4 text-slate-500" />
-                            <span>View Request</span>
-                          </Link>
-                        </DropdownMenuItem>
+                    {/* ACTIONS */}
+                    <td className="py-4 px-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
+                          <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={`/support/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
+                              <Eye className="h-4 w-4 text-slate-500" />
+                              <span>View Request</span>
+                            </Link>
+                          </DropdownMenuItem>
 
-                        <DropdownMenuItem
-                          onClick={() => handleRemove(row.id)}
-                          className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                          <span>Remove Request</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <DropdownMenuItem
+                            onClick={() => handleRemove(row.id)}
+                            className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <span>Remove Request</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    No support tickets found matching your search.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination Controls - Restored Circular rounded-full Design */}
       <div className="flex items-center justify-center gap-2 pt-2">
         <button
           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
+          disabled={currentPage === 1}
+          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        {[1, 2, 3, 4, 5, 6].map((num) => (
-          <button
-            key={num}
-            onClick={() => setCurrentPage(num)}
-            className={`size-9 rounded-full text-xs font-semibold transition-colors ${
-              currentPage === num
-                ? "bg-[#10B981] text-white shadow-sm"
-                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {num}
-          </button>
-        ))}
-
-        <span className="text-slate-400 font-semibold text-xs px-1">...</span>
-
-        <button
-          onClick={() => setCurrentPage(10)}
-          className={`size-9 rounded-full text-xs font-semibold transition-colors ${
-            currentPage === 10
-              ? "bg-[#10B981] text-[#10B981] shadow-sm"
-              : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-          }`}
-        >
-          10
-        </button>
+        {getPageNumbers().map((page, idx) =>
+          typeof page === "number" ? (
+            <button
+              key={idx}
+              onClick={() => setCurrentPage(page)}
+              className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                currentPage === page
+                  ? "bg-[#10B981] text-white shadow-sm"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {page}
+            </button>
+          ) : (
+            <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
+              ...
+            </span>
+          )
+        )}
 
         <button
-          onClick={() => setCurrentPage((p) => Math.min(10, p + 1))}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
+          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages || totalPages === 0}
+          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

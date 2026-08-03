@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Download,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import AssignDriverModal from "@/components/modals/AssignDriverModal";
 import AssignPartnerModal from "@/components/modals/AssignPartnerModal";
+import ExportDataModal from "@/components/modals/ExportDataModal";
 import toast from "react-hot-toast";
 import {
   masterDeliveriesList,
@@ -40,6 +42,7 @@ export default function DeliveriesTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAssignDriverModalOpen, setIsAssignDriverModalOpen] = useState(false);
   const [isAssignPartnerModalOpen, setIsAssignPartnerModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<{
     id: string;
     customerName: string;
@@ -170,46 +173,72 @@ export default function DeliveriesTable() {
           />
         </div>
 
-        {/* Filter Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
-            <span>{statusFilter}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem
-              onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              ALL
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => { setStatusFilter("PENDING"); setCurrentPage(1); }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              PENDING
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => { setStatusFilter("ASSIGNED"); setCurrentPage(1); }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              ASSIGNED
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => { setStatusFilter("DELIVERED"); setCurrentPage(1); }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              DELIVERED
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => { setStatusFilter("CANCELLED"); setCurrentPage(1); }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              CANCELLED
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+              <span>{statusFilter}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem
+                onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                ALL
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { setStatusFilter("PENDING"); setCurrentPage(1); }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                PENDING
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { setStatusFilter("ASSIGNED"); setCurrentPage(1); }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                ASSIGNED
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { setStatusFilter("DELIVERED"); setCurrentPage(1); }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                DELIVERED
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { setStatusFilter("CANCELLED"); setCurrentPage(1); }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                CANCELLED
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Export Data Action Button */}
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="h-11 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export Data</span>
+          </button>
+        </div>
       </div>
+
+      {/* Export Data Modal */}
+      <ExportDataModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="Download Deliveries Data"
+        filterLabel="Order Status"
+        filterOptions={[
+          { label: "All Statuses", value: "ALL" },
+          { label: "Pending", value: "PENDING" },
+          { label: "Assigned", value: "ASSIGNED" },
+          { label: "Delivered", value: "DELIVERED" },
+          { label: "Cancelled", value: "CANCELLED" },
+        ]}
+      />
 
       {/* Deliveries Table Card */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">

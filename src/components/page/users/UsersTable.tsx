@@ -23,6 +23,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import ExportDataModal from "@/components/modals/ExportDataModal";
+import { Download } from "lucide-react";
 import toast from "react-hot-toast";
 import { masterUsersList } from "@/demoData/usersManagementData";
 
@@ -35,6 +37,7 @@ export default function UsersTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const handleStatusChange = (id: string, newStatus: string) => {
     setUsers((prev) =>
@@ -104,61 +107,87 @@ export default function UsersTable() {
           />
         </div>
 
-        {/* Filter Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
-            <span>{statusFilter}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem
-              onClick={() => {
-                setStatusFilter("All");
-                setCurrentPage(1);
-              }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              All
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setStatusFilter("Active");
-                setCurrentPage(1);
-              }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Active
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setStatusFilter("Suspended");
-                setCurrentPage(1);
-              }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Suspended
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setStatusFilter("Pending");
-                setCurrentPage(1);
-              }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Pending
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setStatusFilter("Inactive");
-                setCurrentPage(1);
-              }}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Inactive
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+              <span>{statusFilter}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("All");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                All
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Active");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                Active
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Suspended");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                Suspended
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Pending");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                Pending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Inactive");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
+                Inactive
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Export Data Action Button */}
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="h-11 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export Data</span>
+          </button>
+        </div>
       </div>
+
+      {/* Export Data Modal */}
+      <ExportDataModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="Download Users Data"
+        filterLabel="User Status"
+        filterOptions={[
+          { label: "All Statuses", value: "ALL" },
+          { label: "Active", value: "Active" },
+          { label: "Suspended", value: "Suspended" },
+          { label: "Pending", value: "Pending" },
+          { label: "Inactive", value: "Inactive" },
+        ]}
+      />
 
       {/* Main Table Card Container */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">

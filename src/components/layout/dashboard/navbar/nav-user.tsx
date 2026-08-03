@@ -1,7 +1,7 @@
 "use client";
 
+import React, { useState } from "react";
 import { BadgeCheck, LogOut } from "lucide-react";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
+import LogoutModal from "@/components/modals/LogoutModal";
 
 export function NavUser({
   user,
@@ -32,71 +33,84 @@ export function NavUser({
   };
 }) {
   const { logout } = useAuthContext();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
   return (
-    <SidebarMenu className="w-fit pr-4">
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground justify-center w-fit"
-            >
-              <Avatar className="size-10 rounded-lg">
-                <AvatarImage
-                  src={`${user?.image}`}
-                  alt={user?.firstname}
-                  className="rounded-full relative"
-                />
-                <span className="size-2.5 border border-white bg-[#319517] rounded-full absolute bottom-0 right-1"></span>
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
-              <div className="hidden lg:grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold text-[#414141]">
-                  {user?.firstname} {user?.lastname}
-                </span>
-                <span className="truncate text-xs text-primary">
-                  {user?.role}
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            side={"bottom"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={`${user?.image}`} alt={user?.firstname} />
+    <>
+      <SidebarMenu className="w-fit pr-4">
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground justify-center w-fit"
+              >
+                <Avatar className="size-10 rounded-lg">
+                  <AvatarImage
+                    src={`${user?.image}`}
+                    alt={user?.firstname}
+                    className="rounded-full relative"
+                  />
+                  <span className="size-2.5 border border-white bg-[#319517] rounded-full absolute bottom-0 right-1"></span>
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {user?.lastname}
+                <div className="hidden lg:grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold text-[#414141]">
+                    {user?.firstname} {user?.lastname}
                   </span>
-                  <span className="truncate text-xs">{user?.email}</span>
+                  <span className="truncate text-xs text-primary">
+                    {user?.role}
+                  </span>
                 </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <Link href={`/profile`}>
-                <DropdownMenuItem>
-                  <BadgeCheck />
-                  Profile
-                </DropdownMenuItem>
-              </Link>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logout()} className="text-red-500">
-              <LogOut />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              side={"bottom"}
+              align="end"
+              sideOffset={4}
+            >
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={`${user?.image}`} alt={user?.firstname} />
+                    <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {user?.lastname}
+                    </span>
+                    <span className="truncate text-xs">{user?.email}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <Link href={`/profile`}>
+                  <DropdownMenuItem>
+                    <BadgeCheck />
+                    Profile
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setIsLogoutModalOpen(true)}
+                className="text-red-500 cursor-pointer"
+              >
+                <LogOut />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={logout}
+      />
+    </>
   );
 }
