@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ViewReceiptModal from "@/components/modals/ViewReceiptModal";
 import ExportDataModal from "@/components/modals/ExportDataModal";
-import toast from "react-hot-toast";
 import {
   masterPaymentTransactions,
   masterPayoutsList,
@@ -43,8 +42,8 @@ const ITEMS_PER_PAGE = 10;
 
 export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<"transactions" | "payouts">("transactions");
-  const [payments, setPayments] = useState<PaymentTransactionRecord[]>(masterPaymentTransactions);
-  const [payouts, setPayouts] = useState<PayoutRecord[]>(masterPayoutsList);
+  const [payments] = useState<PaymentTransactionRecord[]>(masterPaymentTransactions);
+  const [payouts] = useState<PayoutRecord[]>(masterPayoutsList);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,10 +58,6 @@ export default function TransactionsPage() {
     status: string;
     date: string;
   } | null>(null);
-
-  const handleExport = () => {
-    toast.success(`${activeTab === "transactions" ? "Payment Transactions" : "Payouts"} exported to CSV!`);
-  };
 
   const getMethodIcon = (method: string) => {
     switch (method) {

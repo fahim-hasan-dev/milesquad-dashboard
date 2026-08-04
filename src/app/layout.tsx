@@ -10,8 +10,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Re-Wears | Dashboard",
-  description: "Multi-vendor e-commerce platform for second-hand clothing",
+  title: "MileSquad | Dashboard",
+  description: "MileSquad Admin & Management Dashboard",
 };
 
 export default function RootLayout({

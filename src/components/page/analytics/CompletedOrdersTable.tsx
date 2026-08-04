@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Copy, ArrowRight } from "lucide-react";
+import { Copy, ArrowRight, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import { OrderItem } from "@/data/overviewData";
 
@@ -87,6 +87,7 @@ export default function CompletedOrdersTable({ orders = defaultOrders }: Complet
               <th className="py-3 px-3">Platform Fee</th>
               <th className="py-3 px-3">Booking Date</th>
               <th className="py-3 px-3 text-center">Order Status</th>
+              <th className="py-3 px-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -113,6 +114,15 @@ export default function CompletedOrdersTable({ orders = defaultOrders }: Complet
                 <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
                 <td className="py-4 px-3 text-center">
                   {getStatusBadge(row.status)}
+                </td>
+                <td className="py-4 px-3 text-right">
+                  <Link
+                    href={`/products/details?id=${row.bookingId}`}
+                    className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                    title="View Order Details"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Link>
                 </td>
               </tr>
             ))}

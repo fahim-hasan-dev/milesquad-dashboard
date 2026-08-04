@@ -11,7 +11,6 @@ import {
   Ruler,
   Clock,
   Star,
-  Mail,
   Phone,
   MapPin,
   Send,
@@ -186,8 +185,8 @@ function OrderDetailsContent() {
             </div>
           </div>
 
-          {/* 4 Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* 5 Stat Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Date & Time */}
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-2">
               <div className="size-8 rounded-xl bg-[#E6F4EA] text-[#10B981] flex items-center justify-center">
@@ -213,6 +212,21 @@ function OrderDetailsContent() {
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">{initialOrder.parcelType}</h4>
                 <span className="text-xs text-slate-400 font-medium">Standard Courier</span>
+              </div>
+            </div>
+
+            {/* Vehicle Type */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-2">
+              <div className="size-8 rounded-xl bg-[#E6F4EA] text-[#10B981] flex items-center justify-center">
+                <Bike className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">
+                  VEHICLE TYPE
+                </span>
+                <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                  Motorcycle
+                </h4>
               </div>
             </div>
 
@@ -354,27 +368,6 @@ function OrderDetailsContent() {
               </div>
             </div>
           </div>
-
-          {/* Assign Buttons (In Pending Mode) */}
-          {isPending && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsAssignDriverModalOpen(true)}
-                className="flex-1 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm py-3 rounded-2xl transition-all shadow-none cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Bike className="h-4 w-4" />
-                <span>Assign Driver</span>
-              </button>
-
-              <button
-                onClick={() => setIsAssignPartnerModalOpen(true)}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm py-3 rounded-2xl transition-all shadow-none cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Building2 className="h-4 w-4" />
-                <span>Assign Partner</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

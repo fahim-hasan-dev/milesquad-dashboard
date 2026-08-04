@@ -18,6 +18,8 @@ import {
   PauseCircle,
   ShoppingBag,
   DollarSign,
+  Copy,
+  Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { masterUsersList, UserRecord } from "@/demoData/usersManagementData";
@@ -258,6 +260,141 @@ function UserDetailsContent() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* User Orders Section */}
+      <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-100 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg md:text-xl font-bold text-[#18181B]">
+              User Order History
+            </h3>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              List of all delivery bookings placed by {initialUser.name}
+            </p>
+          </div>
+          <span className="bg-emerald-50 text-[#10B981] border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
+            {initialUser.totalOrders} Orders Total
+          </span>
+        </div>
+
+        {/* Orders Table */}
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left text-xs font-medium text-slate-600 border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <th className="py-3 px-3">SL</th>
+                <th className="py-3 px-3">Booking ID</th>
+                <th className="py-3 px-3">Pickup Location</th>
+                <th className="py-3 px-3">Delivery Location</th>
+                <th className="py-3 px-3">Price</th>
+                <th className="py-3 px-3">Booking Date</th>
+                <th className="py-3 px-3 text-center">Status</th>
+                <th className="py-3 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {[
+                {
+                  sl: 1,
+                  bookingId: "FM-BKG-000050",
+                  pickupLocation: "Downtown Central, Plaza 4",
+                  deliveryLocation: "Greenwood Estate, Block B",
+                  price: "$1,250.00",
+                  bookingDate: "11 Jun 2026",
+                  status: "DELIVERED",
+                },
+                {
+                  sl: 2,
+                  bookingId: "FM-BKG-000047",
+                  pickupLocation: "Sunset Boulevard, Apt 12",
+                  deliveryLocation: "Airport Cargo Terminal",
+                  price: "$850.00",
+                  bookingDate: "28 May 2026",
+                  status: "IN TRANSIT",
+                },
+                {
+                  sl: 3,
+                  bookingId: "FM-BKG-000042",
+                  pickupLocation: "Metro Station North",
+                  deliveryLocation: "Tech Park, Building 7",
+                  price: "$2,100.00",
+                  bookingDate: "15 May 2026",
+                  status: "DELIVERED",
+                },
+                {
+                  sl: 4,
+                  bookingId: "FM-BKG-000038",
+                  pickupLocation: "East Side Market",
+                  deliveryLocation: "St. Jude Hospital",
+                  price: "$450.00",
+                  bookingDate: "02 May 2026",
+                  status: "PENDING",
+                },
+                {
+                  sl: 5,
+                  bookingId: "FM-BKG-000031",
+                  pickupLocation: "Central Warehouse",
+                  deliveryLocation: "Oakridge Residential",
+                  price: "$1,750.00",
+                  bookingDate: "18 Apr 2026",
+                  status: "CANCELLED",
+                },
+              ].map((row) => (
+                <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-4 px-3 text-slate-500">{row.sl}</td>
+                  <td className="py-4 px-3 font-semibold text-slate-900">
+                    <div className="flex items-center gap-1.5">
+                      <span>{row.bookingId}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(row.bookingId);
+                          toast.success(`Copied ${row.bookingId}`);
+                        }}
+                        className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 cursor-pointer"
+                        title="Copy Booking ID"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
+                  <td className="py-4 px-3 text-slate-700 font-medium">{row.pickupLocation}</td>
+                  <td className="py-4 px-3 text-slate-700 font-medium">{row.deliveryLocation}</td>
+                  <td className="py-4 px-3 font-bold text-blue-600">{row.price}</td>
+                  <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
+                  <td className="py-4 px-3 text-center">
+                    {row.status === "DELIVERED" ? (
+                      <span className="inline-block border border-emerald-300 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                        DELIVERED
+                      </span>
+                    ) : row.status === "IN TRANSIT" ? (
+                      <span className="inline-block border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                        IN TRANSIT
+                      </span>
+                    ) : row.status === "CANCELLED" ? (
+                      <span className="inline-block border border-red-300 bg-red-50 text-red-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                        CANCELLED
+                      </span>
+                    ) : (
+                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                        PENDING
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-4 px-3 text-right">
+                    <Link
+                      href={`/products/details?id=${row.bookingId}`}
+                      className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                      title="View Order Details"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -4,8 +4,6 @@ import React, { useState } from "react";
 import {
   Search,
   ChevronDown,
-  User,
-  Phone,
   CheckCircle2,
   XCircle,
   MoreHorizontal,
@@ -16,8 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   PlusCircle,
-  ShieldCheck,
-  ShieldAlert,
 } from "lucide-react";
 import {
   DropdownMenu,
