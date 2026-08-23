@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
+import { cookies } from "next/headers";
 import { config } from "@/config/env-config";
 import { getToken } from "./get-token";
 
@@ -15,6 +16,7 @@ export interface FetchResponse {
     totalPage: number;
   };
   error?: string | null;
+  statusCode?: number;
 }
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -36,7 +38,7 @@ export const myFetch = async (
     tags,
     token,
     headers = {},
-    cache = "force-cache",
+    cache = "no-store",
   }: FetchOptions = {}
 ): Promise<FetchResponse> => {
   const accessToken = token || (await getToken());
@@ -52,7 +54,8 @@ export const myFetch = async (
   };
 
   try {
-    const response = await fetch(`${config.baseURL}${url}`, {
+    const fullUrl = url.startsWith("/") ? `${config.baseURL}${url}` : `${config.baseURL}/${url}`;
+    const response = await fetch(fullUrl, {
       method,
       headers: reqHeaders,
       ...(hasBody && { body: isFormData ? body : JSON.stringify(body) }),
@@ -62,6 +65,23 @@ export const myFetch = async (
 
     const data = await response.json();
 
+    if (response.status === 401) {
+      try {
+        const cookieStore = await cookies();
+        cookieStore.delete("accessToken");
+        cookieStore.delete("user");
+      } catch {
+        // Ignored if called in context where cookies cannot be mutated
+      }
+      return {
+        success: false,
+        message: data?.message || "Session expired or unauthorized",
+        data: null,
+        error: data?.message || "Unauthorized",
+        statusCode: 401,
+      };
+    }
+
     if (response.ok) {
       return {
         success: data?.success ?? true,
@@ -69,6 +89,7 @@ export const myFetch = async (
         data: data?.data,
         pagination: data?.pagination,
         error: null,
+        statusCode: response.status,
       };
     }
 
@@ -76,7 +97,8 @@ export const myFetch = async (
       success: false,
       message: data?.message,
       data: null,
-      error: data?.errorMessages || "Request failed",
+      error: data?.errorMessages || data?.message || "Request failed",
+      statusCode: response.status,
     };
   } catch (error) {
     return {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
@@ -20,9 +20,34 @@ import {
   DollarSign,
   Copy,
   Eye,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { masterUsersList, UserRecord } from "@/demoData/usersManagementData";
+import { myFetch } from "@/utils/myFetch";
+
+interface UserOrderItem {
+  sl: number;
+  bookingId: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+  price: string;
+  bookingDate: string;
+  status: string;
+}
+
+interface UserDetailData {
+  id: string;
+  name: string;
+  email: string;
+  contact: string;
+  location: string;
+  role: string;
+  status: string;
+  avatar: string;
+  joinedDate: string;
+  totalOrders: number;
+  totalSpent: string;
+}
 
 function UserDetailsContent() {
   const searchParams = useSearchParams();
@@ -30,26 +55,96 @@ function UserDetailsContent() {
 
   const queryId = searchParams.get("id");
   const routeId = params ? (params.id as string) : null;
-  const rawId = queryId || routeId || "USR-00101";
-  const userId = rawId.toUpperCase();
+  const targetId = queryId || routeId;
 
-  // Dynamically find user from master dataset
-  const matchedUser = masterUsersList.find(
-    (u) => u.id.toUpperCase() === userId
-  );
+  const [user, setUser] = useState<UserDetailData | null>(null);
+  const [userOrders, setUserOrders] = useState<UserOrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const initialUser: UserRecord = matchedUser || masterUsersList[0];
-  const [userStatus, setUserStatus] = useState<string>(initialUser.status);
+  useEffect(() => {
+    if (!targetId) return;
 
-  const toggleStatus = () => {
-    if (userStatus === "Active") {
-      setUserStatus("Suspended");
-      toast.success(`User ${initialUser.name} (${initialUser.id}) has been suspended`);
-    } else {
-      setUserStatus("Active");
-      toast.success(`User ${initialUser.name} (${initialUser.id}) has been activated`);
-    }
-  };
+    const fetchUserDetails = async () => {
+      setLoading(true);
+      try {
+        const [userRes, parcelRes] = await Promise.all([
+          myFetch(`/user/${targetId}`),
+          myFetch(`/parcel?sender=${targetId}`),
+        ]);
+
+        let ordersList: UserOrderItem[] = [];
+        let computedTotalSpent = 0;
+
+        if (parcelRes.success && parcelRes.data) {
+          const rawParcels = parcelRes.data.parcels || [];
+          ordersList = rawParcels.map((p: any, idx: number) => {
+            const numPrice = Number(
+              p.pricingDetails?.customer?.totalToPay || p.totalToPay || p.totalDeliveryFee || p.price || 0
+            );
+            computedTotalSpent += numPrice;
+
+            return {
+              sl: idx + 1,
+              bookingId: p._id || `BKG-${idx + 1}`,
+              pickupLocation: p.pickupLocation?.address || "N/A",
+              deliveryLocation: p.dropLocation?.address || "N/A",
+              price: `$${numPrice.toFixed(2)}`,
+              bookingDate: p.createdAt
+                ? new Date(p.createdAt).toLocaleDateString("en-US", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "N/A",
+              status: (p.status || "PENDING").toUpperCase(),
+            };
+          });
+        }
+        setUserOrders(ordersList);
+
+        if (userRes.success && userRes.data) {
+          const u = userRes.data;
+          setUser({
+            id: u._id,
+            name: u.fullName || u.name || "N/A",
+            email: u.email || "N/A",
+            contact: u.phone || "N/A",
+            location: u.location || u.address || "N/A",
+            role: u.role || "Customer",
+            status:
+              u.status === "ACTIVE"
+                ? "Active"
+                : u.status === "RESTRICTED" || u.status === "BLOCKED"
+                ? "Suspended"
+                : u.status === "PENDING"
+                ? "Pending"
+                : "Inactive",
+            avatar:
+              u.image ||
+              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            joinedDate: u.createdAt
+              ? new Date(u.createdAt).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "N/A",
+            totalOrders: ordersList.length,
+            totalSpent: `$${computedTotalSpent.toFixed(2)}`,
+          });
+        } else {
+          toast.error(userRes.message || "Failed to load user details");
+        }
+      } catch (err) {
+        console.error("Error fetching user detail:", err);
+        toast.error("Error loading user details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserDetails();
+  }, [targetId]);
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -85,6 +180,30 @@ function UserDetailsContent() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+        <span className="text-sm font-medium">Loading user details...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium space-y-4">
+        <p>User details not found.</p>
+        <Link
+          href="/users"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-[#10B981] hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Users</span>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Back Link */}
@@ -108,17 +227,6 @@ function UserDetailsContent() {
             Complete information about this user account.
           </p>
         </div>
-
-        <button
-          onClick={toggleStatus}
-          className={`self-start sm:self-auto text-xs md:text-sm font-semibold px-6 py-2.5 rounded-xl transition-all cursor-pointer bg-white shadow-none border ${
-            userStatus === "Active"
-              ? "border-red-200 text-red-500 hover:bg-red-50"
-              : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-          }`}
-        >
-          {userStatus === "Active" ? "Suspend User" : "Activate User"}
-        </button>
       </div>
 
       {/* 2-Card Layout Container */}
@@ -128,8 +236,8 @@ function UserDetailsContent() {
           {/* Avatar Picture */}
           <div className="relative mb-4">
             <Image
-              src={initialUser.avatar}
-              alt={initialUser.name}
+              src={user.avatar}
+              alt={user.name}
               width={112}
               height={112}
               className="w-28 h-28 rounded-full object-cover border-4 border-slate-50 shadow-sm"
@@ -138,14 +246,14 @@ function UserDetailsContent() {
 
           {/* User Name & ID */}
           <h2 className="text-xl md:text-2xl font-bold text-[#18181B] tracking-tight">
-            {initialUser.name}
+            {user.name}
           </h2>
           <span className="text-xs font-medium text-slate-400 mt-1 mb-3 block tracking-wide">
-            #{initialUser.id}
+            #{user.id}
           </span>
 
           {/* Status Badge */}
-          <div className="mb-2">{renderStatusBadge(userStatus)}</div>
+          <div className="mb-2">{renderStatusBadge(user.status)}</div>
 
           {/* Divider */}
           <div className="w-full border-t border-slate-100 my-6" />
@@ -157,7 +265,7 @@ function UserDetailsContent() {
               <div>
                 <span className="block text-xs font-semibold text-slate-400">Role</span>
                 <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {initialUser.role}
+                  {user.role}
                 </span>
               </div>
             </div>
@@ -167,7 +275,7 @@ function UserDetailsContent() {
               <div>
                 <span className="block text-xs font-semibold text-slate-400">Location</span>
                 <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {initialUser.location}
+                  {user.location}
                 </span>
               </div>
             </div>
@@ -177,7 +285,7 @@ function UserDetailsContent() {
               <div>
                 <span className="block text-xs font-semibold text-slate-400">Joined</span>
                 <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {initialUser.joinedDate}
+                  {user.joinedDate}
                 </span>
               </div>
             </div>
@@ -194,7 +302,7 @@ function UserDetailsContent() {
           {/* Profile Picture Row */}
           <div className="flex items-center gap-4">
             <Image
-              src={initialUser.avatar}
+              src={user.avatar}
               alt="Profile Picture"
               width={64}
               height={64}
@@ -220,7 +328,7 @@ function UserDetailsContent() {
               <User className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Full Name</span>
-                <span className="font-bold text-[#18181B]">{initialUser.name}</span>
+                <span className="font-bold text-[#18181B]">{user.name}</span>
               </div>
             </div>
 
@@ -229,7 +337,7 @@ function UserDetailsContent() {
               <Mail className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Email Address</span>
-                <span className="font-bold text-[#18181B]">{initialUser.email}</span>
+                <span className="font-bold text-[#18181B]">{user.email}</span>
               </div>
             </div>
 
@@ -238,7 +346,7 @@ function UserDetailsContent() {
               <Phone className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Phone Number</span>
-                <span className="font-bold text-[#18181B]">{initialUser.contact}</span>
+                <span className="font-bold text-[#18181B]">{user.contact}</span>
               </div>
             </div>
 
@@ -247,7 +355,7 @@ function UserDetailsContent() {
               <ShoppingBag className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Total Orders</span>
-                <span className="font-bold text-[#18181B]">{initialUser.totalOrders} Orders</span>
+                <span className="font-bold text-[#18181B]">{user.totalOrders || 0} Orders</span>
               </div>
             </div>
 
@@ -256,7 +364,7 @@ function UserDetailsContent() {
               <DollarSign className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Total Volume</span>
-                <span className="font-bold text-[#10B981]">{initialUser.totalSpent}</span>
+                <span className="font-bold text-[#10B981]">{user.totalSpent || "$0.00"}</span>
               </div>
             </div>
           </div>
@@ -271,11 +379,11 @@ function UserDetailsContent() {
               User Order History
             </h3>
             <p className="text-xs text-slate-400 font-medium mt-0.5">
-              List of all delivery bookings placed by {initialUser.name}
+              List of all delivery bookings placed by {user.name}
             </p>
           </div>
           <span className="bg-emerald-50 text-[#10B981] border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
-            {initialUser.totalOrders} Orders Total
+            {user.totalOrders || 0} Orders Total
           </span>
         </div>
 
@@ -295,104 +403,66 @@ function UserDetailsContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {[
-                {
-                  sl: 1,
-                  bookingId: "FM-BKG-000050",
-                  pickupLocation: "Downtown Central, Plaza 4",
-                  deliveryLocation: "Greenwood Estate, Block B",
-                  price: "$1,250.00",
-                  bookingDate: "11 Jun 2026",
-                  status: "DELIVERED",
-                },
-                {
-                  sl: 2,
-                  bookingId: "FM-BKG-000047",
-                  pickupLocation: "Sunset Boulevard, Apt 12",
-                  deliveryLocation: "Airport Cargo Terminal",
-                  price: "$850.00",
-                  bookingDate: "28 May 2026",
-                  status: "IN TRANSIT",
-                },
-                {
-                  sl: 3,
-                  bookingId: "FM-BKG-000042",
-                  pickupLocation: "Metro Station North",
-                  deliveryLocation: "Tech Park, Building 7",
-                  price: "$2,100.00",
-                  bookingDate: "15 May 2026",
-                  status: "DELIVERED",
-                },
-                {
-                  sl: 4,
-                  bookingId: "FM-BKG-000038",
-                  pickupLocation: "East Side Market",
-                  deliveryLocation: "St. Jude Hospital",
-                  price: "$450.00",
-                  bookingDate: "02 May 2026",
-                  status: "PENDING",
-                },
-                {
-                  sl: 5,
-                  bookingId: "FM-BKG-000031",
-                  pickupLocation: "Central Warehouse",
-                  deliveryLocation: "Oakridge Residential",
-                  price: "$1,750.00",
-                  bookingDate: "18 Apr 2026",
-                  status: "CANCELLED",
-                },
-              ].map((row) => (
-                <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-4 px-3 text-slate-500">{row.sl}</td>
-                  <td className="py-4 px-3 font-semibold text-slate-900">
-                    <div className="flex items-center gap-1.5">
-                      <span>{row.bookingId}</span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(row.bookingId);
-                          toast.success(`Copied ${row.bookingId}`);
-                        }}
-                        className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 cursor-pointer"
-                        title="Copy Booking ID"
+              {userOrders.length > 0 ? (
+                userOrders.map((row) => (
+                  <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-4 px-3 text-slate-500">{row.sl}</td>
+                    <td className="py-4 px-3 font-semibold text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-slate-700">{row.bookingId}</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(row.bookingId);
+                            toast.success(`Copied ${row.bookingId}`);
+                          }}
+                          className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 cursor-pointer"
+                          title="Copy Booking ID"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-4 px-3 text-slate-700 font-medium">{row.pickupLocation}</td>
+                    <td className="py-4 px-3 text-slate-700 font-medium">{row.deliveryLocation}</td>
+                    <td className="py-4 px-3 font-bold text-blue-600">{row.price}</td>
+                    <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
+                    <td className="py-4 px-3 text-center">
+                      {row.status === "DELIVERED" ? (
+                        <span className="inline-block border border-emerald-300 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                          DELIVERED
+                        </span>
+                      ) : row.status === "ON_THE_WAY_TO_DELIVERY" || row.status === "ON_THE_WAY_TO_PICKUP" || row.status === "PICKED_UP" ? (
+                        <span className="inline-block border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                          IN TRANSIT
+                        </span>
+                      ) : row.status === "CANCELLED" ? (
+                        <span className="inline-block border border-red-300 bg-red-50 text-red-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                          CANCELLED
+                        </span>
+                      ) : (
+                        <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
+                          {row.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-3 text-right">
+                      <Link
+                        href={`/orders/details?id=${row.bookingId}`}
+                        className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        title="View Order Details"
                       >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="py-4 px-3 text-slate-700 font-medium">{row.pickupLocation}</td>
-                  <td className="py-4 px-3 text-slate-700 font-medium">{row.deliveryLocation}</td>
-                  <td className="py-4 px-3 font-bold text-blue-600">{row.price}</td>
-                  <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
-                  <td className="py-4 px-3 text-center">
-                    {row.status === "DELIVERED" ? (
-                      <span className="inline-block border border-emerald-300 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                        DELIVERED
-                      </span>
-                    ) : row.status === "IN TRANSIT" ? (
-                      <span className="inline-block border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                        IN TRANSIT
-                      </span>
-                    ) : row.status === "CANCELLED" ? (
-                      <span className="inline-block border border-red-300 bg-red-50 text-red-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                        CANCELLED
-                      </span>
-                    ) : (
-                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                        PENDING
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-4 px-3 text-right">
-                    <Link
-                      href={`/products/details?id=${row.bookingId}`}
-                      className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                      title="View Order Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Link>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    No delivery bookings found for this customer.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

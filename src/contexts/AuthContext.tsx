@@ -5,11 +5,20 @@ import { setCookie, deleteCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
 
 // Define the context type
+export interface AdminUser {
+  id?: string;
+  role?: string;
+  name?: string;
+  email?: string;
+  image?: string | null;
+  [key: string]: any;
+}
+
 interface AuthContextType {
-  token: string | null | unknown;
+  token: string | null;
   setToken: (token: string | null) => void;
-  user: string | null | unknown;
-  setUser: (user: string | null) => void;
+  user: AdminUser | string | null;
+  setUser: (user: AdminUser | string | null) => void;
   logout: () => void;
 }
 
@@ -26,34 +35,44 @@ export const AuthProvider = ({
   initialUser: string | null;
 }) => {
   const [token, setTokenState] = useState<string | null>(initialToken);
-  const [user, setUserState] = useState<string | null>(initialUser);
+  const [user, setUserState] = useState<AdminUser | string | null>(() => {
+    if (!initialUser) return null;
+    try {
+      return JSON.parse(initialUser);
+    } catch {
+      return initialUser;
+    }
+  });
   const router = useRouter();
 
-  // Function to update user state and cookies
+  // Function to update token state and cookies without maxAge expiry
   const setToken = (newToken: string | null) => {
     if (newToken) {
-      setCookie("accessToken", newToken, { maxAge: 60 * 60 * 24 * 7 }); // Store for 7 days
+      setCookie("accessToken", newToken); // No maxAge set - token expiry handled by backend
     } else {
       deleteCookie("accessToken");
     }
     setTokenState(newToken);
   };
 
-  // Function to update user state and cookies
-  const setUser = (newUser: string | null) => {
+  // Function to update user state and cookies without maxAge expiry
+  const setUser = (newUser: AdminUser | string | null) => {
     if (newUser) {
-      setCookie("user", newUser, { maxAge: 60 * 60 * 24 * 7 }); // Store for 7 days
+      const userVal = typeof newUser === "string" ? newUser : JSON.stringify(newUser);
+      setCookie("user", userVal); // No maxAge set - expiry handled by backend
+      setUserState(newUser);
     } else {
       deleteCookie("user");
+      setUserState(null);
     }
-    setUserState(newUser);
   };
 
   // Function to clear user state and cookies
   const logout = () => {
-    setUser(null);
     deleteCookie("accessToken");
     deleteCookie("user");
+    setTokenState(null);
+    setUserState(null);
     router.push("/login");
   };
 

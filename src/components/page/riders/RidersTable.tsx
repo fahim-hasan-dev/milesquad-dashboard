@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -21,6 +21,7 @@ import {
   Check,
   X,
   Download,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,81 +30,177 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
-import SuspendUserModal from "@/components/modals/SuspendUserModal";
 import ExportDataModal from "@/components/modals/ExportDataModal";
-import {
-  masterRidersList,
-  newRiderRequestsList,
-  RiderRecord,
-  RiderRequestRecord,
-} from "@/demoData/ridersManagementData";
+import { myFetch } from "@/utils/myFetch";
 
-const ITEMS_PER_PAGE = 10;
+interface DriverItem {
+  id: string;
+  name: string;
+  email: string;
+  contact: string;
+  location: string;
+  role: string;
+  vehicle: string;
+  verification: string;
+  status: string;
+  avatar: string;
+  dateApplied: string;
+  joinedDate: string;
+}
 
 export default function RidersTable() {
   const [activeTab, setActiveTab] = useState<"active" | "requests">("active");
-  const [activeRiders, setActiveRiders] = useState<RiderRecord[]>(masterRidersList);
-  const [newRequests, setNewRequests] = useState<RiderRequestRecord[]>(newRiderRequestsList);
+  const [activeRiders, setActiveRiders] = useState<DriverItem[]>([]);
+  const [newRequests, setNewRequests] = useState<DriverItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
-  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  const handleOpenSuspend = (id: string) => {
-    setSelectedUserId(id);
-    setIsSuspendModalOpen(true);
-  };
+  const fetchDrivers = useCallback(async () => {
+    setLoading(true);
+    let query = `/user?role=driver&page=${currentPage}&limit=20`;
+    if (searchTerm.trim()) {
+      query += `&searchTerm=${encodeURIComponent(searchTerm.trim())}`;
+    }
 
-  const handleConfirmSuspend = () => {
-    if (selectedUserId) {
-      setActiveRiders((prev) =>
-        prev.map((r) => (r.id === selectedUserId ? { ...r, status: "Suspended" } : r))
-      );
-      toast.success("Rider account suspended");
+    try {
+      const res = await myFetch(query);
+      if (res.success && res.data) {
+        const rawDrivers = res.data.users || [];
+        const formattedDrivers: DriverItem[] = rawDrivers.map((d: any) => {
+          const rawStatus = (d.status || "").toLowerCase();
+          const verificationStatus = (d.driverInfo?.profileVerification || "pending").toLowerCase();
+
+          return {
+            id: d._id,
+            name: d.fullName || d.name || "N/A",
+            email: d.email || "N/A",
+            contact: d.phone || "N/A",
+            location: d.location || d.address || "N/A",
+            role: "Driver",
+            vehicle: d.driverInfo?.vehicleType || "Motorcycle / Van",
+            verification: verificationStatus,
+            status:
+              rawStatus === "active"
+                ? "Active"
+                : rawStatus === "restricted" || rawStatus === "blocked"
+                ? "Suspended"
+                : "Active",
+            avatar:
+              d.image ||
+              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            dateApplied: d.createdAt
+              ? new Date(d.createdAt).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "N/A",
+            joinedDate: d.createdAt
+              ? new Date(d.createdAt).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "N/A",
+          };
+        });
+
+        const activeList = formattedDrivers.filter(
+          (d) => d.verification === "approved"
+        );
+        const requestsList = formattedDrivers.filter(
+          (d) => d.verification !== "approved"
+        );
+
+        setActiveRiders(activeList);
+        setNewRequests(requestsList);
+
+        if (res.data.meta) {
+          setTotalPages(res.data.meta.totalPage || 1);
+        }
+      } else {
+        toast.error(res.message || "Failed to fetch drivers");
+      }
+    } catch (err) {
+      console.error("Error fetching drivers:", err);
+      toast.error("Network error while fetching drivers");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm]);
+
+  useEffect(() => {
+    fetchDrivers();
+  }, [fetchDrivers]);
+
+  const handleApprove = async (id: string) => {
+    toast.loading("Approving driver verification...", { id: "approve-driver" });
+    try {
+      const res = await myFetch(`/user/driver-verification/${id}`, {
+        method: "PATCH",
+        body: { status: "approved" },
+      });
+      if (res.success) {
+        toast.success("Driver verification approved successfully!", { id: "approve-driver" });
+        fetchDrivers();
+      } else {
+        toast.error(res.message || res.error || "Failed to approve driver", {
+          id: "approve-driver",
+        });
+      }
+    } catch {
+      toast.error("Error approving driver", { id: "approve-driver" });
     }
   };
 
-  const handleMarkActive = (id: string) => {
-    setActiveRiders((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Active" } : r))
+  const handleReject = async (id: string) => {
+    const reason = window.prompt(
+      "Enter reason for rejecting driver profile:",
+      "Invalid or incomplete documents"
     );
-    toast.success("Rider marked as Active");
-  };
+    if (reason === null) return;
 
-  const handleRemove = (id: string) => {
-    setActiveRiders((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Rider removed");
-  };
-
-  const handleApprove = (id: string) => {
-    const req = newRequests.find((r) => r.id === id);
-    if (req) {
-      const newRider: RiderRecord = {
-        id: req.id.replace("REQ", "RDR"),
-        name: req.name,
-        location: "Downtown District",
-        role: "Driver",
-        vehicle: req.vehicle,
-        contact: "+1 654 000 1122",
-        email: req.email,
-        status: "Active",
-        joinedDate: "Just now",
-        lastActive: "Just now",
-        rating: 5.0,
-        completedDeliveries: 0,
-        avatar: req.avatar,
-      };
-      setActiveRiders((prev) => [newRider, ...prev]);
+    toast.loading("Rejecting driver verification...", { id: "reject-driver" });
+    try {
+      const res = await myFetch(`/user/driver-verification/${id}`, {
+        method: "PATCH",
+        body: {
+          status: "rejected",
+          rejectReason: reason.trim() || "Invalid or incomplete documents",
+        },
+      });
+      if (res.success) {
+        toast.success("Driver verification rejected successfully!", { id: "reject-driver" });
+        fetchDrivers();
+      } else {
+        toast.error(res.message || res.error || "Failed to reject driver", {
+          id: "reject-driver",
+        });
+      }
+    } catch {
+      toast.error("Error rejecting driver", { id: "reject-driver" });
     }
-    setNewRequests((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Driver registration approved!");
   };
 
-  const handleReject = (id: string) => {
-    setNewRequests((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Driver registration rejected");
+  const handleRemove = async (id: string) => {
+    toast.loading("Removing driver...", { id: "remove-driver" });
+    try {
+      const res = await myFetch(`/user/${id}`, { method: "DELETE" });
+      if (res.success) {
+        toast.success("Driver removed successfully", { id: "remove-driver" });
+        fetchDrivers();
+      } else {
+        toast.error(res.message || res.error || "Failed to remove driver", {
+          id: "remove-driver",
+        });
+      }
+    } catch {
+      toast.error("Error removing driver", { id: "remove-driver" });
+    }
   };
 
   // Filter Active Riders
@@ -132,12 +229,7 @@ export default function RidersTable() {
     );
   });
 
-  const currentDatasetLength = activeTab === "active" ? filteredActive.length : filteredRequests.length;
-  const totalPages = Math.ceil(currentDatasetLength / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  
-  const paginatedActive = filteredActive.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -302,117 +394,105 @@ export default function RidersTable() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedActive.length > 0 ? (
-                  paginatedActive.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <Image
-                            src={row.avatar}
-                            alt={row.name}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                          />
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                              {row.name}
-                            </h4>
-                            <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
-                              <MapPin className="h-3 w-3 text-slate-300" />
-                              <span>{row.location}</span>
-                            </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                      <span>Loading active riders...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : activeRiders.length > 0 ? (
+                activeRiders.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={row.avatar}
+                          alt={row.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                        />
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                            {row.name}
+                          </h4>
+                          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
+                            <MapPin className="h-3 w-3 text-slate-300" />
+                            <span>{row.location}</span>
                           </div>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      <td className="py-4 px-4">
-                        <span className="inline-flex items-center gap-1.5 bg-[#FFF7ED] text-[#EA580C] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50">
-                          <Bike className="h-3.5 w-3.5" />
-                          <span>{row.role} • {row.vehicle}</span>
+                    <td className="py-4 px-4">
+                      <span className="inline-flex items-center gap-1.5 bg-[#FFF7ED] text-[#EA580C] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50">
+                        <Bike className="h-3.5 w-3.5" />
+                        <span>{row.role} • {row.vehicle}</span>
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-slate-700">
+                        <Phone className="h-3.5 w-3.5 text-slate-300" />
+                        <span>{row.contact}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      {row.status === "Active" ? (
+                        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full border border-emerald-200/60">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Active</span>
                         </span>
-                      </td>
+                      ) : row.status === "Suspended" ? (
+                        <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/60">
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span>Suspended</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">
+                          <PauseCircle className="h-3.5 w-3.5" />
+                          <span>Inactive</span>
+                        </span>
+                      )}
+                    </td>
 
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-slate-700">
-                          <Phone className="h-3.5 w-3.5 text-slate-300" />
-                          <span>{row.contact}</span>
-                        </div>
-                      </td>
+                    <td className="py-4 px-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
+                          <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={`/riders/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
+                              <Eye className="h-4 w-4 text-slate-500" />
+                              <span>View Profile</span>
+                            </Link>
+                          </DropdownMenuItem>
 
-                      <td className="py-4 px-4">
-                        {row.status === "Active" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full border border-emerald-200/60">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Active</span>
-                          </span>
-                        ) : row.status === "Suspended" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/60">
-                            <XCircle className="h-3.5 w-3.5" />
-                            <span>Suspended</span>
-                          </span>
-                        ) : row.status === "Pending" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200/60">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>Pending</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">
-                            <PauseCircle className="h-3.5 w-3.5" />
-                            <span>Inactive</span>
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-4 px-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                            <MoreHorizontal className="h-5 w-5" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
-                            <DropdownMenuItem asChild className="cursor-pointer">
-                              <Link href={`/riders/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
-                                <Eye className="h-4 w-4 text-slate-500" />
-                                <span>View Profile</span>
-                              </Link>
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => handleMarkActive(row.id)}
-                              className="flex items-center gap-2.5 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
-                            >
-                              <CheckCircle2 className="h-4 w-4 text-[#10B981]" />
-                              <span>Active User</span>
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => handleOpenSuspend(row.id)}
-                              className="flex items-center gap-2.5 text-xs font-semibold text-[#D97706] py-2 cursor-pointer"
-                            >
-                              <XCircle className="h-4 w-4 text-[#D97706]" />
-                              <span>Suspend User</span>
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => handleRemove(row.id)}
-                              className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                              <span>Remove User</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      No active riders found matching your search.
+                          <DropdownMenuItem
+                            onClick={() => handleRemove(row.id)}
+                            className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <span>Remove User</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
-                )}
-              </tbody>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    No active riders found matching your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
             </table>
           ) : (
             /* New Requests Table */
@@ -426,79 +506,96 @@ export default function RidersTable() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedRequests.length > 0 ? (
-                  paginatedRequests.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <Image
-                            src={row.avatar}
-                            alt={row.name}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                          />
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                              {row.name}
-                            </h4>
-                            <span className="text-xs text-slate-400 font-medium">{row.email}</span>
-                          </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                      <span>Loading driver requests...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : newRequests.length > 0 ? (
+                newRequests.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={row.avatar}
+                          alt={row.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                        />
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                            {row.name}
+                          </h4>
+                          <span className="text-xs text-slate-400 font-medium">{row.email}</span>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      <td className="py-4 px-4">
-                        <span className="inline-flex items-center gap-1.5 bg-[#FFF7ED] text-[#EA580C] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50">
-                          <Bike className="h-3.5 w-3.5" />
-                          <span>{row.vehicle}</span>
-                        </span>
-                      </td>
+                    <td className="py-4 px-4">
+                      <span className="inline-flex items-center gap-1.5 bg-[#FFF7ED] text-[#EA580C] text-xs font-semibold px-3 py-1 rounded-full border border-amber-200/50">
+                        <Bike className="h-3.5 w-3.5" />
+                        <span>{row.vehicle}</span>
+                      </span>
+                    </td>
 
-                      <td className="py-4 px-4 text-xs font-semibold text-slate-600">
-                        {row.dateApplied}
-                      </td>
+                    <td className="py-4 px-4 text-xs font-semibold text-slate-600">
+                      {row.dateApplied}
+                    </td>
 
-                      <td className="py-4 px-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                            <MoreHorizontal className="h-5 w-5" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
-                            <DropdownMenuItem asChild className="cursor-pointer">
-                              <Link href={`/riders/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
-                                <Eye className="h-4 w-4 text-slate-500" />
-                                <span>View Profile</span>
-                              </Link>
-                            </DropdownMenuItem>
+                    <td className="py-4 px-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
+                          <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={`/riders/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
+                              <Eye className="h-4 w-4 text-slate-500" />
+                              <span>View Profile</span>
+                            </Link>
+                          </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() => handleApprove(row.id)}
-                              className="flex items-center gap-2.5 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
-                            >
-                              <Check className="h-4 w-4 text-[#10B981]" />
-                              <span>Approve Driver</span>
-                            </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleApprove(row.id)}
+                            className="flex items-center gap-2.5 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
+                          >
+                            <Check className="h-4 w-4 text-[#10B981]" />
+                            <span>Approve Driver</span>
+                          </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() => handleReject(row.id)}
-                              className="flex items-center gap-2.5 text-xs font-semibold text-[#D97706] py-2 cursor-pointer"
-                            >
-                              <X className="h-4 w-4 text-[#D97706]" />
-                              <span>Reject Driver</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      No pending driver requests found.
+                          <DropdownMenuItem
+                            onClick={() => handleReject(row.id)}
+                            className="flex items-center gap-2.5 text-xs font-semibold text-[#D97706] py-2 cursor-pointer"
+                          >
+                            <X className="h-4 w-4 text-[#D97706]" />
+                            <span>Reject Driver</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => handleRemove(row.id)}
+                            className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <span>Remove User</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
-                )}
-              </tbody>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    No pending driver requests found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
             </table>
           )}
         </div>
@@ -542,13 +639,6 @@ export default function RidersTable() {
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-
-      {/* Suspend Confirmation Modal */}
-      <SuspendUserModal
-        isOpen={isSuspendModalOpen}
-        onClose={() => setIsSuspendModalOpen(false)}
-        onConfirm={handleConfirmSuspend}
-      />
 
       {/* Export Data Modal */}
       <ExportDataModal

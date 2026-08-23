@@ -18,16 +18,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { KeyRound, UserPen, Camera } from "lucide-react";
+import { KeyRound, UserPen, Camera, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [adminName, setAdminName] = useState("ABDOU");
-  const [adminAvatar, setAdminAvatar] = useState<string | null>(null);
+  const { user, setUser, logout } = useAuthContext();
+
+  const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
+  const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
+  const adminAvatar = currentUserObj.image || null;
+  const adminRole = currentUserObj.role || "Admin";
+
   const [isChangeNameModalOpen, setIsChangeNameModalOpen] = useState(false);
   const [isChangePictureModalOpen, setIsChangePictureModalOpen] = useState(false);
 
@@ -54,7 +60,7 @@ export default function DashboardLayout({
                 <div className="flex items-center gap-2.5 bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm hover:bg-slate-50 transition-colors">
                   <div className="text-right leading-tight">
                     <span className="block text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                      Admin
+                      {adminRole}
                     </span>
                     <span className="block text-xs font-bold text-slate-800 uppercase">
                       {adminName}
@@ -98,6 +104,14 @@ export default function DashboardLayout({
                   <Camera className="h-4 w-4 text-slate-400" />
                   <span>Change Picture</span>
                 </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="flex items-center gap-2.5 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2.5 cursor-pointer rounded-xl"
+                >
+                  <LogOut className="h-4 w-4 text-red-500" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -112,7 +126,13 @@ export default function DashboardLayout({
         isOpen={isChangeNameModalOpen}
         onClose={() => setIsChangeNameModalOpen(false)}
         currentName={adminName}
-        onUpdateName={(newName) => setAdminName(newName)}
+        onUpdateName={(newName) => {
+          if (typeof user === "object" && user !== null) {
+            setUser({ ...user, name: newName });
+          } else {
+            setUser(newName);
+          }
+        }}
       />
 
       {/* Change Picture Modal */}
@@ -120,7 +140,11 @@ export default function DashboardLayout({
         isOpen={isChangePictureModalOpen}
         onClose={() => setIsChangePictureModalOpen(false)}
         currentPicture={adminAvatar}
-        onUpdatePicture={(newPic) => setAdminAvatar(newPic)}
+        onUpdatePicture={(newPic) => {
+          if (typeof user === "object" && user !== null) {
+            setUser({ ...user, image: newPic });
+          }
+        }}
       />
     </SidebarProvider>
   );

@@ -12,34 +12,57 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { useAuthContext } from "@/contexts/AuthContext";
+import { myFetch } from "@/utils/myFetch";
+
 export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { setToken, setUser } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams ? searchParams.get("redirect") : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.loading("Logging in...", {
-      id: "login",
-    });
+    if (loading) return;
+
+    setLoading(true);
+    toast.loading("Logging in...", { id: "login" });
+
     const formData = new FormData(e.currentTarget);
-    const payload = {
-      email: formData.get("email"),
-      password: formData.get("password"),
-    };
-    console.log(payload);
+    const email = formData.get("email")?.toString().trim();
+    const password = formData.get("password")?.toString();
+
+    if (!email || !password) {
+      toast.error("Please enter email and password", { id: "login" });
+      setLoading(false);
+      return;
+    }
 
     try {
-      //! perform your api call here..
+      const res = await myFetch("/admin/login", {
+        method: "POST",
+        body: { email, password },
+      });
 
-      toast.success("Login successful", { id: "login" });
-      router.push(redirect || "/");
+      if (res.success && res.data?.accessToken) {
+        setToken(res.data.accessToken);
+        setUser(res.data.userInfo || { email, role: res.data.role });
+
+        toast.success(res.message || "Login successful", { id: "login" });
+        router.push(redirect || "/");
+      } else {
+        toast.error(res.message || res.error || "Login failed. Please check credentials.", { id: "login" });
+      }
     } catch (error: unknown) {
-      console.log("Error fetching data:", error);
+      console.error("Error during login:", error);
+      toast.error("Network error. Could not connect to server.", { id: "login" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,7 +101,7 @@ export function LoginForm({
             id="email"
             name="email"
             type="email"
-            placeholder="Enter your full name"
+            placeholder="Enter your email"
             required
             className="w-full h-12 px-4 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
           />
@@ -94,7 +117,7 @@ export function LoginForm({
               id="password"
               name="password"
               type={isPasswordVisible ? "text" : "password"}
-              placeholder="Enter your full name"
+              placeholder="Enter your password"
               required
               className="w-full h-12 pl-4 pr-11 rounded-xl border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#10B981] focus-visible:border-[#10B981] text-gray-900 text-sm shadow-none placeholder:text-gray-300"
             />

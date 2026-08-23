@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -16,6 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
+  Loader2,
+  Download,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,54 +24,105 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ExportDataModal from "@/components/modals/ExportDataModal";
-import { Download } from "lucide-react";
 import toast from "react-hot-toast";
-import { masterUsersList } from "@/demoData/usersManagementData";
+import { myFetch } from "@/utils/myFetch";
 
-const initialUsersData = masterUsersList;
-
-const ITEMS_PER_PAGE = 10;
+interface UserItem {
+  id: string;
+  name: string;
+  email: string;
+  contact: string;
+  location: string;
+  role: string;
+  status: string;
+  avatar: string;
+  createdAt?: string;
+}
 
 export default function UsersTable() {
-  const [users, setUsers] = useState(initialUsersData);
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u))
-    );
-    toast.success(`User status updated to ${newStatus}`);
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    let query = `/user?role=customer&page=${currentPage}&limit=10`;
+    if (searchTerm.trim()) {
+      query += `&searchTerm=${encodeURIComponent(searchTerm.trim())}`;
+    }
+    if (statusFilter !== "All") {
+      const statusValue = statusFilter === "Suspended" ? "restricted" : statusFilter.toLowerCase();
+      query += `&status=${statusValue}`;
+    }
+
+    try {
+      const res = await myFetch(query);
+      if (res.success && res.data) {
+        const rawUsers = res.data.users || [];
+        const formattedUsers: UserItem[] = rawUsers.map((u: any) => {
+          const rawStatus = (u.status || "").toLowerCase();
+          const displayStatus =
+            rawStatus === "active"
+              ? "Active"
+              : rawStatus === "restricted" || rawStatus === "blocked"
+              ? "Suspended"
+              : rawStatus === "pending"
+              ? "Pending"
+              : "Active";
+
+          return {
+            id: u._id,
+            name: u.fullName || u.name || "N/A",
+            email: u.email || "",
+            contact: u.phone || "N/A",
+            location: u.location || u.address || "N/A",
+            role: "Customer",
+            status: displayStatus,
+            avatar:
+              u.image ||
+              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            createdAt: u.createdAt,
+          };
+        });
+
+        setUsers(formattedUsers);
+        if (res.data.meta) {
+          setTotalPages(res.data.meta.totalPage || 1);
+        }
+      } else {
+        toast.error(res.message || "Failed to load users data");
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      toast.error("Error connecting to server");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleRemove = async (id: string) => {
+    toast.loading("Removing user...", { id: "remove-user" });
+    try {
+      const res = await myFetch(`/user/${id}`, { method: "DELETE" });
+      if (res.success) {
+        toast.success("User removed successfully", { id: "remove-user" });
+        fetchUsers();
+      } else {
+        toast.error(res.message || res.error || "Failed to remove user", { id: "remove-user" });
+      }
+    } catch {
+      toast.error("Error removing user", { id: "remove-user" });
+    }
   };
 
-  const handleRemove = (id: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    toast.success("User removed");
-  };
-
-  // Filter users based on search term and status filter
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.contact.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "All" ||
-      u.status.toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Calculate pagination (10 items per page)
-  const totalItems = filteredUsers.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  // Generate pagination page numbers
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     if (totalPages <= 7) {
@@ -203,8 +254,17 @@ export default function UsersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedUsers.length > 0 ? (
-                paginatedUsers.map((row) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                      <span>Loading customers data...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : users.length > 0 ? (
+                users.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* User Profile Cell */}
                     <td className="py-4 px-4">
@@ -281,22 +341,6 @@ export default function UsersTable() {
                               <Eye className="h-4 w-4 text-slate-500" />
                               <span>View Profile</span>
                             </Link>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() => handleStatusChange(row.id, "Active")}
-                            className="flex items-center gap-2.5 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
-                          >
-                            <CheckCircle2 className="h-4 w-4 text-[#10B981]" />
-                            <span>Active User</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() => handleStatusChange(row.id, "Suspended")}
-                            className="flex items-center gap-2.5 text-xs font-semibold text-[#D97706] py-2 cursor-pointer"
-                          >
-                            <XCircle className="h-4 w-4 text-[#D97706]" />
-                            <span>Suspend User</span>
                           </DropdownMenuItem>
 
                           <DropdownMenuItem

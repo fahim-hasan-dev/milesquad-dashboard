@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
@@ -20,15 +20,37 @@ import {
   PackageCheck,
   Check,
   X,
+  Loader2,
 } from "lucide-react";
 import SuspendUserModal from "@/components/modals/SuspendUserModal";
 import TrackDriverModal from "@/components/modals/TrackDriverModal";
 import toast from "react-hot-toast";
-import {
-  masterRidersList,
-  newRiderRequestsList,
-  RiderRecord,
-} from "@/demoData/ridersManagementData";
+import { myFetch } from "@/utils/myFetch";
+import { SERVER_URL } from "@/config/env-config";
+
+interface DriverDetailData {
+  id: string;
+  name: string;
+  email: string;
+  contact: string;
+  location: string;
+  role: string;
+  vehicle: string;
+  verification: string;
+  status: string;
+  avatar: string;
+  joinedDate: string;
+  nidFront: string | null;
+  nidBack: string | null;
+  drivingLicense: string | null;
+}
+
+function getImageUrl(path?: string | null): string {
+  if (!path) return "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${SERVER_URL || "http://localhost:5003"}${cleanPath}`;
+}
 
 function RiderDetailsContent() {
   const searchParams = useSearchParams();
@@ -36,61 +58,115 @@ function RiderDetailsContent() {
 
   const queryId = searchParams.get("id");
   const routeId = params ? (params.id as string) : null;
-  const rawId = queryId || routeId || "RDR-00101";
-  const riderId = rawId.toUpperCase();
+  const targetId = queryId || routeId;
 
-  // Find rider from active list or requests list
-  const matchedActive = masterRidersList.find(
-    (r) => r.id.toUpperCase() === riderId
-  );
-  const matchedRequest = newRiderRequestsList.find(
-    (r) => r.id.toUpperCase() === riderId
-  );
-
-  const isNewRequest = Boolean(matchedRequest) || riderId.startsWith("REQ");
-
-  const fallbackRider: RiderRecord = {
-    id: riderId,
-    name: matchedRequest ? matchedRequest.name : "Sumon Mia",
-    location: "Downtown District",
-    role: "Driver",
-    vehicle: matchedRequest ? matchedRequest.vehicle : "Truck",
-    contact: "+1 654 656 5656",
-    email: matchedRequest ? matchedRequest.email : "sumon.mia@milesquad.com",
-    status: matchedRequest ? "Pending" : "Active",
-    joinedDate: matchedRequest ? matchedRequest.dateApplied : "Jan 15, 2024",
-    lastActive: "10 mins ago",
-    rating: 4.8,
-    completedDeliveries: 142,
-    avatar: matchedRequest
-      ? matchedRequest.avatar
-      : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
-  };
-
-  const initialRider: RiderRecord = matchedActive || fallbackRider;
-  const [riderStatus, setRiderStatus] = useState<string>(initialRider.status);
+  const [rider, setRider] = useState<DriverDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
 
-  const handleConfirmSuspend = () => {
-    setRiderStatus("Suspended");
-    setIsSuspendModalOpen(false);
-    toast.success(`Rider ${initialRider.name} account suspended`);
+  const fetchRiderDetails = async () => {
+    if (!targetId) return;
+    setLoading(true);
+    try {
+      const res = await myFetch(`/user/${targetId}`);
+      if (res.success && res.data) {
+        const d = res.data;
+        setRider({
+          id: d._id,
+          name: d.fullName || d.name || "N/A",
+          email: d.email || "N/A",
+          contact: d.phone || "N/A",
+          location: d.location || d.address || "N/A",
+          role: "Driver",
+          vehicle: d.driverInfo?.vehicleType || "Motorcycle / Van",
+          verification: (d.driverInfo?.profileVerification || "pending").toLowerCase(),
+          status:
+            d.status === "ACTIVE"
+              ? "Active"
+              : d.status === "RESTRICTED" || d.status === "BLOCKED"
+              ? "Suspended"
+              : "Inactive",
+          avatar:
+            d.image ||
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+          joinedDate: d.createdAt
+            ? new Date(d.createdAt).toLocaleDateString("en-US", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "N/A",
+          nidFront: d.driverInfo?.nidFront || null,
+          nidBack: d.driverInfo?.nidBack || null,
+          drivingLicense: d.driverInfo?.drivingLicense || null,
+        });
+      } else {
+        toast.error(res.message || "Failed to load driver details");
+      }
+    } catch (err) {
+      console.error("Error loading driver detail:", err);
+      toast.error("Network error while loading driver details");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleActivate = () => {
-    setRiderStatus("Active");
-    toast.success(`Rider ${initialRider.name} account activated`);
+  useEffect(() => {
+    fetchRiderDetails();
+  }, [targetId]);
+
+  const handleApproveDriver = async () => {
+    if (!targetId) return;
+    toast.loading("Approving driver verification...", { id: "approve-driver" });
+    try {
+      const res = await myFetch(`/user/driver-verification/${targetId}`, {
+        method: "PATCH",
+        body: { status: "approved" },
+      });
+      if (res.success) {
+        toast.success("Driver verification approved successfully!", {
+          id: "approve-driver",
+        });
+        fetchRiderDetails();
+      } else {
+        toast.error(res.message || res.error || "Failed to approve driver", {
+          id: "approve-driver",
+        });
+      }
+    } catch {
+      toast.error("Error approving driver", { id: "approve-driver" });
+    }
   };
 
-  const handleApproveDriver = () => {
-    setRiderStatus("Active");
-    toast.success(`Driver ${initialRider.name} registration approved!`);
-  };
+  const handleRejectDriver = async () => {
+    if (!targetId) return;
+    const reason = window.prompt(
+      "Enter reason for rejecting driver profile:",
+      "Invalid or incomplete document scans"
+    );
+    if (reason === null) return;
 
-  const handleRejectDriver = () => {
-    setRiderStatus("Inactive");
-    toast.success(`Driver ${initialRider.name} registration rejected`);
+    toast.loading("Rejecting driver verification...", { id: "reject-driver" });
+    try {
+      const res = await myFetch(`/user/driver-verification/${targetId}`, {
+        method: "PATCH",
+        body: {
+          status: "rejected",
+          rejectReason: reason.trim() || "Invalid or incomplete document scans",
+        },
+      });
+      if (res.success) {
+        toast.success("Driver verification rejected successfully!", { id: "reject-driver" });
+        fetchRiderDetails();
+      } else {
+        toast.error(res.message || res.error || "Failed to reject driver", {
+          id: "reject-driver",
+        });
+      }
+    } catch {
+      toast.error("Error rejecting driver", { id: "reject-driver" });
+    }
   };
 
   const handleTrackUser = () => {
@@ -131,6 +207,32 @@ function RiderDetailsContent() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+        <span className="text-sm font-medium">Loading rider details...</span>
+      </div>
+    );
+  }
+
+  if (!rider) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium space-y-4">
+        <p>Driver details not found.</p>
+        <Link
+          href="/riders"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-[#10B981] hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Riders</span>
+        </Link>
+      </div>
+    );
+  }
+
+  const isPending = rider.verification !== "approved";
+
   return (
     <div className="space-y-6 pb-12">
       {/* Back Link */}
@@ -155,9 +257,9 @@ function RiderDetailsContent() {
           </p>
         </div>
 
-        {/* Top Right Actions: Different for New Requests vs Active Riders */}
+        {/* Top Right Actions */}
         <div className="flex items-center gap-3">
-          {isNewRequest ? (
+          {isPending ? (
             <>
               <button
                 onClick={handleApproveDriver}
@@ -175,42 +277,25 @@ function RiderDetailsContent() {
               </button>
             </>
           ) : (
-            <>
-              <button
-                onClick={handleTrackUser}
-                className="bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm px-6 py-2.5 rounded-xl transition-all shadow-none cursor-pointer"
-              >
-                Track User
-              </button>
-              {riderStatus === "Active" ? (
-                <button
-                  onClick={() => setIsSuspendModalOpen(true)}
-                  className="border border-red-200/90 text-red-500 hover:bg-red-50/70 text-xs md:text-sm font-semibold px-6 py-2.5 rounded-xl transition-all cursor-pointer bg-white shadow-none"
-                >
-                  Suspend User
-                </button>
-              ) : (
-                <button
-                  onClick={handleActivate}
-                  className="border border-emerald-200 text-emerald-600 hover:bg-emerald-50 text-xs md:text-sm font-semibold px-6 py-2.5 rounded-xl transition-all cursor-pointer bg-white shadow-none"
-                >
-                  Activate User
-                </button>
-              )}
-            </>
+            <button
+              onClick={() => setIsTrackModalOpen(true)}
+              className="bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm px-6 py-2.5 rounded-xl transition-all shadow-none cursor-pointer"
+            >
+              Track User
+            </button>
           )}
         </div>
       </div>
 
       {/* Row 1: Profile Summary & Personal Info */}
       <div className="flex flex-col lg:flex-row items-stretch gap-6">
-        {/* Left Card: Summary Card (Fixed ~360px on desktop) */}
+        {/* Left Card: Summary Card */}
         <div className="w-full lg:w-[360px] shrink-0 bg-white rounded-2xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
           {/* Avatar Picture */}
           <div className="relative mb-3">
             <Image
-              src={initialRider.avatar}
-              alt={initialRider.name}
+              src={rider.avatar}
+              alt={rider.name}
               width={100}
               height={100}
               className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm"
@@ -219,17 +304,17 @@ function RiderDetailsContent() {
 
           {/* User Name & ID */}
           <h2 className="text-xl font-bold text-[#18181B] tracking-tight">
-            {initialRider.name}
+            {rider.name}
           </h2>
           <span className="text-xs font-medium text-slate-400 mt-0.5 mb-3 block">
-            #{initialRider.id}
+            #{rider.id}
           </span>
 
           {/* Status & Driver Badge */}
           <div className="flex items-center gap-2 mb-2">
-            {renderStatusBadge(riderStatus)}
+            {renderStatusBadge(rider.verification === "APPROVED" ? "Active" : "Pending")}
             <span className="inline-block bg-[#FFF7ED] text-[#EA580C] text-xs font-bold px-3 py-1 rounded-full border border-amber-200/50">
-              {initialRider.vehicle}
+              {rider.vehicle}
             </span>
           </div>
 
@@ -243,7 +328,7 @@ function RiderDetailsContent() {
               <div>
                 <span className="block text-xs font-semibold text-slate-400">Role</span>
                 <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {initialRider.role}
+                  {rider.role}
                 </span>
               </div>
             </div>
@@ -252,39 +337,25 @@ function RiderDetailsContent() {
               <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
               <div>
                 <span className="block text-xs font-semibold text-slate-400">
-                  {isNewRequest ? "Date Applied" : "Joined"}
+                  {isPending ? "Date Applied" : "Joined"}
                 </span>
                 <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {initialRider.joinedDate}
+                  {rider.joinedDate}
                 </span>
               </div>
             </div>
-
-            {!isNewRequest && (
-              <div className="flex items-start gap-3.5">
-                <Clock className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400">Last Active</span>
-                  <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                    {initialRider.lastActive}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Right Card: Personal Information */}
         <div className="flex-1 bg-white rounded-2xl p-8 md:p-10 border border-slate-100 shadow-sm flex flex-col justify-start">
-          {/* Section Title */}
           <h3 className="text-lg md:text-xl font-bold text-[#18181B] mb-6">
             Personal Information & Vehicle Specs
           </h3>
 
-          {/* Profile Picture Row */}
           <div className="flex items-center gap-4">
             <Image
-              src={initialRider.avatar}
+              src={rider.avatar}
               alt="Profile Picture"
               width={64}
               height={64}
@@ -300,81 +371,53 @@ function RiderDetailsContent() {
             </div>
           </div>
 
-          {/* Divider */}
           <div className="w-full border-t border-slate-100 my-6" />
 
-          {/* Personal Info Rows */}
           <div className="space-y-6">
-            {/* Full Name */}
             <div className="flex items-center gap-3">
               <User className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Full Name</span>
-                <span className="font-bold text-[#18181B]">{initialRider.name}</span>
+                <span className="font-bold text-[#18181B]">{rider.name}</span>
               </div>
             </div>
 
-            {/* Email */}
             <div className="flex items-center gap-3">
               <Mail className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Email</span>
-                <span className="font-bold text-[#18181B]">{initialRider.email}</span>
+                <span className="font-bold text-[#18181B]">{rider.email}</span>
               </div>
             </div>
 
-            {/* Phone */}
             <div className="flex items-center gap-3">
               <Phone className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Phone Number</span>
-                <span className="font-bold text-[#18181B]">{initialRider.contact}</span>
+                <span className="font-bold text-[#18181B]">{rider.contact}</span>
               </div>
             </div>
 
-            {/* Vehicle Type */}
             <div className="flex items-center gap-3">
               <Bike className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Vehicle Type</span>
-                <span className="font-bold text-[#18181B]">{initialRider.vehicle}</span>
+                <span className="font-bold text-[#18181B]">{rider.vehicle}</span>
               </div>
             </div>
-
-            {!isNewRequest && (
-              <>
-                {/* Performance Rating */}
-                <div className="flex items-center gap-3">
-                  <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />
-                  <div className="flex items-center gap-6 text-sm">
-                    <span className="w-32 md:w-44 font-medium text-slate-500">Rating</span>
-                    <span className="font-bold text-[#18181B]">{initialRider.rating} / 5.0</span>
-                  </div>
-                </div>
-
-                {/* Total Deliveries */}
-                <div className="flex items-center gap-3">
-                  <PackageCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                  <div className="flex items-center gap-6 text-sm">
-                    <span className="w-32 md:w-44 font-medium text-slate-500">Completed Orders</span>
-                    <span className="font-bold text-[#10B981]">{initialRider.completedDeliveries} Deliveries</span>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </div>
 
       {/* Row 2: Document Scans Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-        {/* National ID Card (2 images: Front & Back) */}
+        {/* National ID Card */}
         <div className="space-y-3">
           <h4 className="text-sm font-bold text-slate-800 px-1">National ID Card</h4>
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4">
             <div className="relative flex-1 h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
               <Image
-                src="https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400"
+                src={getImageUrl(rider.nidFront)}
                 alt="ID Card Front"
                 fill
                 className="object-cover"
@@ -382,7 +425,7 @@ function RiderDetailsContent() {
             </div>
             <div className="relative flex-1 h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
               <Image
-                src="https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400"
+                src={getImageUrl(rider.nidBack)}
                 alt="ID Card Back"
                 fill
                 className="object-cover"
@@ -391,13 +434,13 @@ function RiderDetailsContent() {
           </div>
         </div>
 
-        {/* Driving License / ID Card (1 image) */}
+        {/* Driving License */}
         <div className="space-y-3">
           <h4 className="text-sm font-bold text-slate-800 px-1">Driving License</h4>
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
             <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
               <Image
-                src="https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400"
+                src={getImageUrl(rider.drivingLicense)}
                 alt="Driving License"
                 fill
                 className="object-cover"
@@ -407,22 +450,15 @@ function RiderDetailsContent() {
         </div>
       </div>
 
-      {/* Suspend Confirmation Modal */}
-      <SuspendUserModal
-        isOpen={isSuspendModalOpen}
-        onClose={() => setIsSuspendModalOpen(false)}
-        onConfirm={handleConfirmSuspend}
-      />
-
       {/* Track Driver Live Google Map Modal */}
       <TrackDriverModal
         isOpen={isTrackModalOpen}
         onClose={() => setIsTrackModalOpen(false)}
-        driverName={initialRider.name}
-        driverAvatar={initialRider.avatar}
-        vehicle={initialRider.vehicle}
-        contact={initialRider.contact}
-        locationName={initialRider.location}
+        driverName={rider.name}
+        driverAvatar={rider.avatar}
+        vehicle={rider.vehicle}
+        contact={rider.contact}
+        locationName={rider.location}
       />
     </div>
   );
