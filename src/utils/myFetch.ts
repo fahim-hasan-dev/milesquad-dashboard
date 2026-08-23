@@ -73,6 +73,15 @@ export const myFetch = async (
       } catch {
         // Ignored if called in context where cookies cannot be mutated
       }
+
+      if (typeof window !== "undefined") {
+        document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }
+
       return {
         success: false,
         message: data?.message || "Session expired or unauthorized",

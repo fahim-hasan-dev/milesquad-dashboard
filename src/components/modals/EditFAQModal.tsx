@@ -10,23 +10,34 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
-import { FAQItem } from "@/demoData/faqManagementData";
+import { myFetch } from "@/utils/myFetch";
+import { Loader2 } from "lucide-react";
+
+export interface FAQItemData {
+  _id?: string;
+  id?: number | string;
+  number?: string;
+  question: string;
+  answer: string;
+  target?: string;
+}
 
 interface EditFAQModalProps {
   isOpen: boolean;
   onClose: () => void;
-  faq: FAQItem | null;
-  onUpdateFAQ: (updatedFaq: FAQItem) => void;
+  faq: FAQItemData | null;
+  onSuccess: () => void;
 }
 
 export default function EditFAQModal({
   isOpen,
   onClose,
   faq,
-  onUpdateFAQ,
+  onSuccess,
 }: EditFAQModalProps) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (faq) {
@@ -37,7 +48,7 @@ export default function EditFAQModal({
 
   if (!faq) return null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!question || !answer) {
@@ -45,13 +56,36 @@ export default function EditFAQModal({
       return;
     }
 
-    onUpdateFAQ({
-      ...faq,
-      question,
-      answer,
-    });
-    toast.success("FAQ updated successfully!");
-    onClose();
+    const faqId = faq._id || faq.id;
+    if (!faqId) return;
+
+    setSubmitting(true);
+    toast.loading("Updating FAQ...", { id: "update-faq" });
+
+    try {
+      const res = await myFetch(`/public/faq/${faqId}`, {
+        method: "PATCH",
+        body: {
+          question,
+          answer,
+          target: faq.target || "customer",
+        },
+      });
+
+      if (res.success) {
+        toast.success("FAQ updated successfully!", { id: "update-faq" });
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message || res.error || "Failed to update FAQ", {
+          id: "update-faq",
+        });
+      }
+    } catch {
+      toast.error("Error updating FAQ", { id: "update-faq" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -112,9 +146,11 @@ export default function EditFAQModal({
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none"
+              disabled={submitting}
+              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Save Changes
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Save Changes</span>
             </button>
           </div>
         </form>

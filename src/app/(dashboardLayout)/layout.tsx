@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
+import { getCookie } from "cookies-next";
 import DashboardBreadcrumb from "@/components/layout/dashboard/navbar/dashboard-breadcrumb";
 import NotificationDropdown from "@/components/layout/dashboard/navbar/NotificationDropdown";
 import ChangeNameModal from "@/components/modals/ChangeNameModal";
@@ -18,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { KeyRound, UserPen, Camera, LogOut } from "lucide-react";
+import { KeyRound, UserPen, Camera, LogOut, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
 
@@ -27,7 +29,20 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, setUser, logout } = useAuthContext();
+  const { token, user, setUser, logout } = useAuthContext();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const cookieToken = getCookie("accessToken");
+    if (!token && !cookieToken) {
+      setIsAuthenticated(false);
+      router.replace("/login");
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [token, pathname, router]);
 
   const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
   const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
@@ -36,6 +51,15 @@ export default function DashboardLayout({
 
   const [isChangeNameModalOpen, setIsChangeNameModalOpen] = useState(false);
   const [isChangePictureModalOpen, setIsChangePictureModalOpen] = useState(false);
+
+  if (isAuthenticated === false || (!token && typeof window !== "undefined" && !getCookie("accessToken"))) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+        <p className="text-xs font-semibold text-slate-500">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider className="no-scrollbar bg-[#F8FAFC]">

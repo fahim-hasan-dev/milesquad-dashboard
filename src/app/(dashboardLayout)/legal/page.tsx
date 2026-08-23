@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { FileText, ShieldCheck, Save, User, Bike } from "lucide-react";
+import { FileText, ShieldCheck, Save, User, Bike, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { myFetch } from "@/utils/myFetch";
 
 // Dynamically import JoditEditor with SSR disabled
 const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
@@ -86,15 +87,98 @@ const defaultDriverPrivacy = `<h3>1. Driver Personal &amp; Verification Data</h3
 <h3>3. Telematics &amp; Safety Data</h3>
 <p>Driving speeds, route history, and trip completion metrics are logged to ensure safety compliance and calculate performance bonuses.</p>`;
 
+const editorConfig = {
+  readonly: false,
+  height: 550,
+  minHeight: 480,
+  theme: "light",
+  placeholder: "Start typing legal document content...",
+  toolbarAdaptive: false,
+  style: {
+    fontSize: "15px",
+    fontFamily: "Inter, sans-serif",
+  },
+  buttons: [
+    "bold",
+    "italic",
+    "underline",
+    "strikethrough",
+    "|",
+    "font",
+    "fontsize",
+    "paragraph",
+    "|",
+    "ul",
+    "ol",
+    "|",
+    "align",
+    "undo",
+    "redo",
+    "|",
+    "hr",
+    "table",
+    "link",
+    "fullsize",
+  ],
+};
+
 export default function LegalPage() {
-  const editor = useRef(null);
+  const editor = useRef<any>(null);
   const [docType, setDocType] = useState<"terms" | "privacy">("terms");
   const [targetRole, setTargetRole] = useState<"user" | "driver">("user");
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [userTerms, setUserTerms] = useState(defaultUserTerms);
   const [driverTerms, setDriverTerms] = useState(defaultDriverTerms);
   const [userPrivacy, setUserPrivacy] = useState(defaultUserPrivacy);
   const [driverPrivacy, setDriverPrivacy] = useState(defaultDriverPrivacy);
+
+  const getTypeKey = useCallback((doc: "terms" | "privacy", role: "user" | "driver") => {
+    if (doc === "terms") {
+      return role === "user" ? "customer-terms" : "driver-terms";
+    } else {
+      return role === "user" ? "customer-privacy" : "driver-privacy";
+    }
+  }, []);
+
+  const fetchAllLegalDocs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const types = [
+        "customer-terms",
+        "driver-terms",
+        "customer-privacy",
+        "driver-privacy",
+      ];
+      const results = await Promise.all(
+        types.map(async (t) => {
+          const res = await myFetch(`/public/${t}`);
+          return { type: t, content: res.data?.content || null };
+        })
+      );
+
+      const docMap: Record<string, string | null> = {};
+      results.forEach((r) => {
+        docMap[r.type] = r.content;
+      });
+
+      if (docMap["customer-terms"]) setUserTerms(docMap["customer-terms"]);
+      if (docMap["driver-terms"]) setDriverTerms(docMap["driver-terms"]);
+      if (docMap["customer-privacy"]) setUserPrivacy(docMap["customer-privacy"]);
+      if (docMap["driver-privacy"]) setDriverPrivacy(docMap["driver-privacy"]);
+    } catch (err) {
+      console.error("Error fetching legal docs:", err);
+      toast.error("Failed to load legal content from server");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllLegalDocs();
+  }, [fetchAllLegalDocs]);
 
   // Helper to get active text
   const getActiveContent = () => {
@@ -122,43 +206,41 @@ export default function LegalPage() {
     return `${roleName} ${docName}`;
   };
 
-  const handleSave = () => {
-    toast.success(`${getDocTitle()} saved successfully!`);
-  };
+  const handleSave = async () => {
+    const currentTypeKey = getTypeKey(docType, targetRole);
+    const editorVal = editor.current?.value;
+    const currentContent =
+      typeof editorVal === "string" && editorVal.trim().length > 0
+        ? editorVal
+        : getActiveContent();
 
-  const editorConfig = {
-    readonly: false,
-    height: 550,
-    minHeight: 480,
-    theme: "light",
-    placeholder: "Start typing legal document content...",
-    toolbarAdaptive: false,
-    style: {
-      fontSize: "15px",
-      fontFamily: "Inter, sans-serif",
-    },
-    buttons: [
-      "bold",
-      "italic",
-      "underline",
-      "strikethrough",
-      "|",
-      "font",
-      "fontsize",
-      "paragraph",
-      "|",
-      "ul",
-      "ol",
-      "|",
-      "align",
-      "undo",
-      "redo",
-      "|",
-      "hr",
-      "table",
-      "link",
-      "fullsize",
-    ],
+    setSaving(true);
+    toast.loading(`Saving ${getDocTitle()}...`, { id: "save-legal" });
+
+    try {
+      const res = await myFetch("/public", {
+        method: "POST",
+        body: {
+          type: currentTypeKey,
+          content: currentContent,
+        },
+      });
+
+      if (res.success) {
+        toast.success(`${getDocTitle()} saved successfully!`, {
+          id: "save-legal",
+        });
+        setActiveContent(currentContent);
+      } else {
+        toast.error(res.message || res.error || "Failed to save document", {
+          id: "save-legal",
+        });
+      }
+    } catch {
+      toast.error("Error connecting to server", { id: "save-legal" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -233,23 +315,35 @@ export default function LegalPage() {
         </div>
 
         {/* Jodit Rich Text Editor Container */}
-        <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm [&_.jodit-container]:!border-none">
-          <JoditEditor
-            ref={editor}
-            value={getActiveContent()}
-            config={editorConfig}
-            onBlur={(newContent) => setActiveContent(newContent)}
-          />
-        </div>
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+            <span className="text-xs font-medium">Loading legal document from server...</span>
+          </div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm [&_.jodit-container]:!border-none">
+            <JoditEditor
+              ref={editor}
+              value={getActiveContent()}
+              config={editorConfig}
+              onBlur={(newContent) => setActiveContent(newContent)}
+            />
+          </div>
+        )}
 
         {/* Bottom Save Button */}
         <div className="flex justify-end pt-1">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-7 py-2.5 rounded-xl transition-all shadow-none cursor-pointer"
+            disabled={saving || loading}
+            className="flex items-center gap-2 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-7 py-2.5 rounded-xl transition-all shadow-none cursor-pointer disabled:opacity-50"
           >
-            <Save className="h-4 w-4" />
-            <span>Save</span>
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span>Save Document</span>
           </button>
         </div>
       </div>
