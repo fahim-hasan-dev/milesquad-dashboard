@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { KeyRound, UserPen, Camera, LogOut, Loader2 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
 
 export default function DashboardLayout({
@@ -34,20 +35,31 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
+  const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
+  const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
+  const adminAvatar = currentUserObj.image || null;
+  const adminRole = currentUserObj.role || "Admin";
+
+  const userRole = (currentUserObj.role || "").toLowerCase();
+  const isSubAdmin = userRole === "sub_admin";
+  const restrictedPathsForSubAdmin = ["/pricing", "/transactions", "/admins"];
+
   useEffect(() => {
     const cookieToken = getCookie("accessToken");
     if (!token && !cookieToken) {
       setIsAuthenticated(false);
       router.replace("/login");
-    } else {
-      setIsAuthenticated(true);
+      return;
     }
-  }, [token, pathname, router]);
 
-  const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
-  const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
-  const adminAvatar = currentUserObj.image || null;
-  const adminRole = currentUserObj.role || "Admin";
+    setIsAuthenticated(true);
+
+    // Sub-admin Route Access Guard
+    if (isSubAdmin && restrictedPathsForSubAdmin.some((path) => pathname.startsWith(path))) {
+      toast.error("Access Denied: Sub-admins cannot access this section.");
+      router.replace("/");
+    }
+  }, [token, pathname, router, isSubAdmin]);
 
   const [isChangeNameModalOpen, setIsChangeNameModalOpen] = useState(false);
   const [isChangePictureModalOpen, setIsChangePictureModalOpen] = useState(false);

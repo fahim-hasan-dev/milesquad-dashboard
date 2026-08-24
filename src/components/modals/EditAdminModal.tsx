@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, UserCheck } from "lucide-react";
+import { UserCheck, Phone, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,53 +11,84 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
-import { AdminRecord } from "@/demoData/adminsManagementData";
+import { myFetch } from "@/utils/myFetch";
+
+export interface AdminData {
+  _id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  role?: string;
+  status: "active" | "inactive" | "blocked" | "deleted";
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface EditAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
-  admin: AdminRecord | null;
-  onUpdateAdmin: (updatedAdmin: AdminRecord) => void;
+  admin: AdminData | null;
+  onSuccess: () => void;
 }
 
 export default function EditAdminModal({
   isOpen,
   onClose,
   admin,
-  onUpdateAdmin,
+  onSuccess,
 }: EditAdminModalProps) {
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (admin) {
-      setName(admin.name || "");
+      setFullName(admin.fullName || "");
       setEmail(admin.email || "");
-      setPassword(admin.password || "");
+      setPhone(admin.phone || "");
     }
   }, [admin]);
 
   if (!admin) return null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!name || !email) {
-      toast.error("Please fill in required fields");
+    if (!fullName || !email) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
-    onUpdateAdmin({
-      ...admin,
-      name,
-      email,
-      password: password || admin.password,
-    });
+    setSubmitting(true);
+    toast.loading("Updating admin...", { id: "update-admin" });
 
-    toast.success("Admin details updated successfully!");
-    onClose();
+    try {
+      const res = await myFetch(`/admin/${admin._id}`, {
+        method: "PATCH",
+        body: {
+          fullName,
+          email,
+          phone: phone || undefined,
+        },
+      });
+
+      if (res.success) {
+        toast.success("Admin details updated successfully!", {
+          id: "update-admin",
+        });
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message || res.error || "Failed to update admin", {
+          id: "update-admin",
+        });
+      }
+    } catch {
+      toast.error("Error connecting to server", { id: "update-admin" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -72,7 +103,7 @@ export default function EditAdminModal({
             Edit Admin Details
           </DialogTitle>
           <p className="text-xs text-slate-400 font-normal">
-            Update administrator name, email, or password.
+            Update administrator name, email, or contact number.
           </p>
         </DialogHeader>
 
@@ -81,13 +112,13 @@ export default function EditAdminModal({
           {/* Name Field */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="editAdminName" className="text-xs font-semibold text-slate-700">
-              Admin Name
+              Admin Full Name <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input
               id="editAdminName"
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               placeholder="Enter full name"
               required
               className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none"
@@ -97,7 +128,7 @@ export default function EditAdminModal({
           {/* Email Field */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="editAdminEmail" className="text-xs font-semibold text-slate-700">
-              Email Address
+              Email Address <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input
               id="editAdminEmail"
@@ -110,32 +141,19 @@ export default function EditAdminModal({
             />
           </div>
 
-          {/* Password Field */}
+          {/* Phone Field */}
           <div className="space-y-1.5 text-left">
-            <Label htmlFor="editAdminPassword" className="text-xs font-semibold text-slate-700">
-              Password
+            <Label htmlFor="editAdminPhone" className="text-xs font-semibold text-slate-700">
+              Phone Number
             </Label>
-            <div className="relative">
-              <Input
-                id="editAdminPassword"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+            <Input
+              id="editAdminPhone"
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. +16541234567"
+              className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none"
+            />
           </div>
 
           {/* Action Buttons */}
@@ -149,9 +167,11 @@ export default function EditAdminModal({
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none"
+              disabled={submitting}
+              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Save Changes
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Save Changes</span>
             </button>
           </div>
         </form>

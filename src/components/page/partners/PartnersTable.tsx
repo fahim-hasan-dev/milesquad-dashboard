@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Search,
   Plus,
@@ -12,6 +12,7 @@ import {
   Edit,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -20,86 +21,102 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import AddPartnerModal from "@/components/modals/AddPartnerModal";
-import EditPartnerModal from "@/components/modals/EditPartnerModal";
+import EditPartnerModal, { PartnerData } from "@/components/modals/EditPartnerModal";
 import ViewPartnerModal from "@/components/modals/ViewPartnerModal";
+import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
-import {
-  masterPartnersList,
-  PartnerRecord,
-} from "@/demoData/partnersManagementData";
-
-const ITEMS_PER_PAGE = 10;
+import { myFetch } from "@/utils/myFetch";
 
 export default function PartnersTable() {
-  const [partners, setPartners] = useState<PartnerRecord[]>(masterPartnersList);
+  const [partners, setPartners] = useState<PartnerData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState<PartnerRecord | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPartner, setSelectedPartner] = useState<PartnerData | null>(null);
 
-  const handleAddPartner = (newPartner: Partial<PartnerRecord>) => {
-    const created: PartnerRecord = {
-      id: `P-00${partners.length + 1}`,
-      name: newPartner.name || "New Partner",
-      initials: (newPartner.name || "NP")
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2),
-      avatarBg: "bg-[#10B981]",
-      role: "Partner",
-      email: newPartner.email || "partner@example.com",
-      phone: newPartner.phone || "+1 654 000 0000",
-      status: "Active",
-      dateAdded: "Just now",
-    };
+  const fetchPartners = useCallback(async () => {
+    setLoading(true);
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.set("page", currentPage.toString());
+      queryParams.set("limit", "10");
+      if (searchTerm.trim()) {
+        queryParams.set("searchTerm", searchTerm.trim());
+      }
 
-    setPartners((prev) => [created, ...prev]);
-    toast.success("New partner added successfully!");
+      const res = await myFetch(`/partner?${queryParams.toString()}`);
+      if (res.success && res.data) {
+        setPartners(res.data.data || []);
+        if (res.data.meta) {
+          setTotalPages(res.data.meta.totalPage || 1);
+          setTotalItems(res.data.meta.total || 0);
+        }
+      } else {
+        setPartners([]);
+      }
+    } catch (err) {
+      console.error("Error fetching partners:", err);
+      toast.error("Failed to load partners from server");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm]);
+
+  useEffect(() => {
+    fetchPartners();
+  }, [fetchPartners]);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingPartnerId, setDeletingPartnerId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleOpenDelete = (id: string) => {
+    setDeletingPartnerId(id);
+    setIsDeleteModalOpen(true);
   };
 
-  const handleUpdatePartner = (updated: PartnerRecord) => {
-    setPartners((prev) =>
-      prev.map((p) => (p.id === updated.id ? updated : p))
-    );
+  const confirmDeletePartner = async () => {
+    if (!deletingPartnerId) return;
+
+    setDeleting(true);
+    toast.loading("Removing partner...", { id: "delete-partner" });
+    try {
+      const res = await myFetch(`/partner/${deletingPartnerId}`, {
+        method: "DELETE",
+      });
+
+      if (res.success) {
+        toast.success("Partner removed successfully!", { id: "delete-partner" });
+        setIsDeleteModalOpen(false);
+        setDeletingPartnerId(null);
+        fetchPartners();
+      } else {
+        toast.error(res.message || res.error || "Failed to remove partner", {
+          id: "delete-partner",
+        });
+      }
+    } catch {
+      toast.error("Error removing partner", { id: "delete-partner" });
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const handleRemove = (id: string) => {
-    setPartners((prev) => prev.filter((p) => p.id !== id));
-    toast.success("Partner removed successfully");
-  };
-
-  const handleOpenView = (partner: PartnerRecord) => {
+  const handleOpenView = (partner: PartnerData) => {
     setSelectedPartner(partner);
     setIsViewModalOpen(true);
   };
 
-  const handleOpenEdit = (partner: PartnerRecord) => {
+  const handleOpenEdit = (partner: PartnerData) => {
     setSelectedPartner(partner);
     setIsEditModalOpen(true);
   };
-
-  // Filter partners based on search
-  const filteredPartners = partners.filter((p) => {
-    return (
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
-
-  // Calculate pagination (10 per page)
-  const totalItems = filteredPartners.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedPartners = filteredPartners.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
-  );
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -126,7 +143,7 @@ export default function PartnersTable() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search anything..."
+            placeholder="Search partners by name, email, phone..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -159,82 +176,106 @@ export default function PartnersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedPartners.length > 0 ? (
-                paginatedPartners.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* Partner Avatar + Name */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`size-10 rounded-full ${row.avatarBg} text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm`}
-                        >
-                          {row.initials}
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-7 w-7 animate-spin text-[#10B981]" />
+                      <span className="text-xs font-medium">Loading partners from server...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : partners.length > 0 ? (
+                partners.map((row) => {
+                  const initials = (row.fullName || "PA")
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  const formattedDate = row.createdAt
+                    ? new Date(row.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "N/A";
+
+                  return (
+                    <tr key={row._id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Partner Avatar + Name */}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                            {initials}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                              {row.fullName}
+                            </h4>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              #{row._id.slice(-6)}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                            {row.name}
-                          </h4>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            #{row.id}
-                          </span>
+                      </td>
+
+                      {/* Contact Info (Email & Phone stacked) */}
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                            <Mail className="h-3 w-3 text-slate-400" />
+                            <span>{row.email}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                            <Phone className="h-3 w-3 text-slate-400" />
+                            <span>{row.phone}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Contact Info (Email & Phone stacked) */}
-                    <td className="py-4 px-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                          <Mail className="h-3 w-3 text-slate-400" />
-                          <span>{row.email}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                          <Phone className="h-3 w-3 text-slate-400" />
-                          <span>{row.phone}</span>
-                        </div>
-                      </div>
-                    </td>
+                      {/* Date Added */}
+                      <td className="py-4 px-4 text-xs font-medium text-slate-500">
+                        {formattedDate}
+                      </td>
 
-                    {/* Date Added */}
-                    <td className="py-4 px-4 text-xs font-medium text-slate-500">
-                      {row.dateAdded}
-                    </td>
+                      {/* Actions Dropdown */}
+                      <td className="py-4 px-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                            <MoreHorizontal className="h-5 w-5" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
+                            <DropdownMenuItem
+                              onClick={() => handleOpenView(row)}
+                              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
+                            >
+                              <Eye className="h-4 w-4 text-slate-500" />
+                              <span>View Details</span>
+                            </DropdownMenuItem>
 
-                    {/* Actions Dropdown */}
-                    <td className="py-4 px-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
-                          <DropdownMenuItem
-                            onClick={() => handleOpenView(row)}
-                            className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
-                          >
-                            <Eye className="h-4 w-4 text-slate-500" />
-                            <span>View Details</span>
-                          </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenEdit(row)}
+                              className="flex items-center gap-2.5 text-xs font-semibold text-blue-600 py-2 cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 text-blue-600" />
+                              <span>Edit Partner</span>
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() => handleOpenEdit(row)}
-                            className="flex items-center gap-2.5 text-xs font-semibold text-blue-600 py-2 cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 text-blue-600" />
-                            <span>Edit Partner</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() => handleRemove(row.id)}
-                            className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                            <span>Remove</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
+                            <DropdownMenuItem
+                              onClick={() => handleOpenDelete(row._id)}
+                              className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <span>Remove</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-slate-400 font-medium text-sm">
@@ -247,50 +288,56 @@ export default function PartnersTable() {
         </div>
       </div>
 
-      {/* Pagination Controls - Restored Circular rounded-full Design */}
-      <div className="flex items-center justify-center gap-2 pt-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between pt-2">
+        <span className="text-xs font-medium text-slate-500">
+          Showing {partners.length} of {totalItems} partners
+        </span>
 
-        {getPageNumbers().map((page, idx) =>
-          typeof page === "number" ? (
-            <button
-              key={idx}
-              onClick={() => setCurrentPage(page)}
-              className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                currentPage === page
-                  ? "bg-[#10B981] text-white shadow-sm"
-                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
-              ...
-            </span>
-          )
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1 || loading}
+            className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
 
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages || totalPages === 0}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+          {getPageNumbers().map((page, idx) =>
+            typeof page === "number" ? (
+              <button
+                key={idx}
+                onClick={() => setCurrentPage(page)}
+                className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                  currentPage === page
+                    ? "bg-[#10B981] text-white shadow-sm"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {page}
+              </button>
+            ) : (
+              <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
+                ...
+              </span>
+            )
+          )}
+
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0 || loading}
+            className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Add Partner Modal */}
       <AddPartnerModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onAddPartner={handleAddPartner}
+        onSuccess={fetchPartners}
       />
 
       {/* View Partner Details Modal */}
@@ -305,7 +352,17 @@ export default function PartnersTable() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         partner={selectedPartner}
-        onUpdatePartner={handleUpdatePartner}
+        onSuccess={fetchPartners}
+      />
+
+      {/* Delete Partner Confirmation Modal */}
+      <DeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeletePartner}
+        loading={deleting}
+        title="Remove Partner"
+        description="Are you sure you want to remove this partner? This partner will be deleted."
       />
     </div>
   );

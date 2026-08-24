@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { Eye, EyeOff, UserPlus, Phone, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,40 +11,72 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
+import { myFetch } from "@/utils/myFetch";
 
 interface AddAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddAdmin: (newAdmin: { name: string; email: string; password: string }) => void;
+  onSuccess: () => void;
 }
 
 export default function AddAdminModal({
   isOpen,
   onClose,
-  onAddAdmin,
+  onSuccess,
 }: AddAdminModalProps) {
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!name || !email || !password) {
+    if (!fullName || !email || !password) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    onAddAdmin({ name, email, password });
-    toast.success("New Admin created successfully!");
-    
-    // Reset form
-    setName("");
-    setEmail("");
-    setPassword("");
-    setShowPassword(false);
-    onClose();
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
+    setSubmitting(true);
+    toast.loading("Creating admin...", { id: "add-admin" });
+
+    try {
+      const res = await myFetch("/admin/create-sub-admin", {
+        method: "POST",
+        body: {
+          fullName,
+          email,
+          password,
+          phone: phone || undefined,
+        },
+      });
+
+      if (res.success) {
+        toast.success("New Admin created successfully!", { id: "add-admin" });
+        setFullName("");
+        setEmail("");
+        setPassword("");
+        setPhone("");
+        setShowPassword(false);
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message || res.error || "Failed to create admin", {
+          id: "add-admin",
+        });
+      }
+    } catch {
+      toast.error("Error connecting to server", { id: "add-admin" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -68,13 +100,13 @@ export default function AddAdminModal({
           {/* Name Field */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="adminName" className="text-xs font-semibold text-slate-700">
-              Admin Name
+              Admin Full Name <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input
               id="adminName"
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               placeholder="Enter full name"
               required
               className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none"
@@ -84,7 +116,7 @@ export default function AddAdminModal({
           {/* Email Field */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="adminEmail" className="text-xs font-semibold text-slate-700">
-              Email Address
+              Email Address <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input
               id="adminEmail"
@@ -97,10 +129,25 @@ export default function AddAdminModal({
             />
           </div>
 
+          {/* Phone Field */}
+          <div className="space-y-1.5 text-left">
+            <Label htmlFor="adminPhone" className="text-xs font-semibold text-slate-700">
+              Phone Number
+            </Label>
+            <Input
+              id="adminPhone"
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. +16541234567"
+              className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none"
+            />
+          </div>
+
           {/* Password Field with Show/Hide Toggle */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="adminPassword" className="text-xs font-semibold text-slate-700">
-              Password
+              Password <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <Input
@@ -108,7 +155,7 @@ export default function AddAdminModal({
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter strong password"
+                placeholder="At least 6 characters"
                 required
                 className="h-11 rounded-xl bg-[#F8FAFC] border border-slate-200/80 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none pr-10"
               />
@@ -137,9 +184,11 @@ export default function AddAdminModal({
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none"
+              disabled={submitting}
+              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Add Admin
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Add Admin</span>
             </button>
           </div>
         </form>

@@ -1,19 +1,19 @@
 "use client";
 
 import React from "react";
-import { Mail, Phone, Calendar, Hash, User } from "lucide-react";
+import { Mail, Phone, Calendar, Hash, User, Briefcase } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PartnerRecord } from "@/demoData/partnersManagementData";
+import { PartnerData } from "@/components/modals/EditPartnerModal";
 
 interface ViewPartnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  partner: PartnerRecord | null;
+  partner: PartnerData | null;
 }
 
 export default function ViewPartnerModal({
@@ -22,6 +22,21 @@ export default function ViewPartnerModal({
   partner,
 }: ViewPartnerModalProps) {
   if (!partner) return null;
+
+  const initials = (partner.fullName || "PA")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const formattedDate = partner.createdAt
+    ? new Date(partner.createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "N/A";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -38,17 +53,15 @@ export default function ViewPartnerModal({
 
         {/* Partner Profile Header Card */}
         <div className="flex items-center gap-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-          <div
-            className={`size-14 rounded-2xl ${partner.avatarBg} text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-sm`}
-          >
-            {partner.initials}
+          <div className="size-14 rounded-2xl bg-[#10B981] text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-sm">
+            {initials}
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 leading-tight">
-              {partner.name}
+              {partner.fullName}
             </h3>
             <span className="text-xs text-slate-400 font-medium block mt-0.5">
-              #{partner.id}
+              {partner.rolePosition || "Partner"}
             </span>
           </div>
         </div>
@@ -60,7 +73,16 @@ export default function ViewPartnerModal({
             <User className="h-4 w-4 text-slate-400 shrink-0" />
             <div className="flex items-center gap-4 text-xs md:text-sm">
               <span className="w-28 font-medium text-slate-400">Full Name</span>
-              <span className="font-bold text-slate-900">{partner.name}</span>
+              <span className="font-bold text-slate-900">{partner.fullName}</span>
+            </div>
+          </div>
+
+          {/* Role Position */}
+          <div className="flex items-center gap-3">
+            <Briefcase className="h-4 w-4 text-slate-400 shrink-0" />
+            <div className="flex items-center gap-4 text-xs md:text-sm">
+              <span className="w-28 font-medium text-slate-400">Role</span>
+              <span className="font-bold text-slate-900">{partner.rolePosition || "Partner"}</span>
             </div>
           </div>
 
@@ -69,7 +91,7 @@ export default function ViewPartnerModal({
             <Hash className="h-4 w-4 text-slate-400 shrink-0" />
             <div className="flex items-center gap-4 text-xs md:text-sm">
               <span className="w-28 font-medium text-slate-400">Partner ID</span>
-              <span className="font-bold text-slate-900">#{partner.id}</span>
+              <span className="font-bold text-slate-900">#{partner._id}</span>
             </div>
           </div>
 
@@ -96,7 +118,7 @@ export default function ViewPartnerModal({
             <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
             <div className="flex items-center gap-4 text-xs md:text-sm">
               <span className="w-28 font-medium text-slate-400">Date Added</span>
-              <span className="font-bold text-slate-900">{partner.dateAdded}</span>
+              <span className="font-bold text-slate-900">{formattedDate}</span>
             </div>
           </div>
         </div>

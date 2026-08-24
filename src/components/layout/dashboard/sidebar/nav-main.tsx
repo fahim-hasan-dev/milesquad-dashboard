@@ -10,6 +10,7 @@ import {
 import { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export interface NavGroup {
   groupLabel: string;
@@ -22,10 +23,29 @@ export interface NavGroup {
 
 export function NavMain({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
+  const { user } = useAuthContext();
+
+  const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as { role?: string };
+  const userRole = (currentUserObj.role || "").toLowerCase();
+  const isSubAdmin = userRole === "sub_admin";
+
+  const restrictedUrls = ["/pricing", "/transactions", "/admins"];
+
+  const filteredGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (isSubAdmin && restrictedUrls.some((r) => item.url.startsWith(r))) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="space-y-4 px-2">
-      {groups.map((group) => (
+      {filteredGroups.map((group) => (
         <SidebarGroup key={group.groupLabel} className="p-0">
           <SidebarGroupLabel className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
             {group.groupLabel}

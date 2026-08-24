@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Mail, Phone } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,28 +11,42 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
-import { PartnerRecord } from "@/demoData/partnersManagementData";
+import { myFetch } from "@/utils/myFetch";
+
+export interface PartnerData {
+  _id: string;
+  fullName: string;
+  rolePosition?: string;
+  email: string;
+  phone: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface EditPartnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  partner: PartnerRecord | null;
-  onUpdatePartner: (updated: PartnerRecord) => void;
+  partner: PartnerData | null;
+  onSuccess: () => void;
 }
 
 export default function EditPartnerModal({
   isOpen,
   onClose,
   partner,
-  onUpdatePartner,
+  onSuccess,
 }: EditPartnerModalProps) {
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [rolePosition, setRolePosition] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (partner) {
-      setName(partner.name || "");
+      setFullName(partner.fullName || "");
+      setRolePosition(partner.rolePosition || "Partner");
       setEmail(partner.email || "");
       setPhone(partner.phone || "");
     }
@@ -40,32 +54,44 @@ export default function EditPartnerModal({
 
   if (!partner) return null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!name || !email) {
+    if (!fullName || !email || !phone) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    const initials = name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
+    setSubmitting(true);
+    toast.loading("Updating partner...", { id: "update-partner" });
 
-    const updatedPartner: PartnerRecord = {
-      ...partner,
-      name,
-      initials: initials || partner.initials,
-      email,
-      phone,
-    };
+    try {
+      const res = await myFetch(`/partner/${partner._id}`, {
+        method: "PATCH",
+        body: {
+          fullName,
+          rolePosition,
+          email,
+          phone,
+        },
+      });
 
-    onUpdatePartner(updatedPartner);
-    toast.success("Partner updated successfully!");
-    onClose();
+      if (res.success) {
+        toast.success("Partner details updated successfully!", {
+          id: "update-partner",
+        });
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message || res.error || "Failed to update partner", {
+          id: "update-partner",
+        });
+      }
+    } catch {
+      toast.error("Error connecting to server", { id: "update-partner" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,7 +103,7 @@ export default function EditPartnerModal({
             Edit Partner Details
           </DialogTitle>
           <p className="text-xs text-slate-400 font-normal">
-            Update contact and profile information for {partner.name}.
+            Update contact and profile information for {partner.fullName}.
           </p>
         </DialogHeader>
 
@@ -86,15 +112,15 @@ export default function EditPartnerModal({
           {/* Full Name */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="editFullName" className="text-xs font-semibold text-slate-700">
-              Full Name
+              Full Name <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 id="editFullName"
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 required
                 className="pl-10 h-11 rounded-xl border border-slate-200 focus-visible:ring-1 focus-visible:ring-[#10B981] text-sm shadow-none"
               />
@@ -104,7 +130,7 @@ export default function EditPartnerModal({
           {/* Email Address */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="editEmail" className="text-xs font-semibold text-slate-700">
-              Email Address
+              Email Address <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -122,7 +148,7 @@ export default function EditPartnerModal({
           {/* Phone Number */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="editPhone" className="text-xs font-semibold text-slate-700">
-              Phone Number
+              Phone Number <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -148,9 +174,11 @@ export default function EditPartnerModal({
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none"
+              disabled={submitting}
+              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Save Changes
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Save Changes</span>
             </button>
           </div>
         </form>

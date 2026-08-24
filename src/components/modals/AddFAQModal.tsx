@@ -83,7 +83,7 @@ export default function AddFAQModal({
           {/* Question */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="question" className="text-xs font-semibold text-slate-700">
-              Question
+              Question <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input
               id="question"
@@ -98,7 +98,7 @@ export default function AddFAQModal({
           {/* Answer */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="answer" className="text-xs font-semibold text-slate-700">
-              Answer
+              Answer <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <textarea
               id="answer"

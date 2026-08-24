@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Minus, Pencil, Trash2, Loader2 } from "lucide-react";
 import AddFAQModal from "@/components/modals/AddFAQModal";
 import EditFAQModal, { FAQItemData } from "@/components/modals/EditFAQModal";
+import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 
@@ -51,19 +52,30 @@ export default function FAQPage() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleDelete = async (id: string | number, e: React.MouseEvent) => {
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingFaqId, setDeletingFaqId] = useState<string | number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleOpenDelete = (id: string | number, e: React.MouseEvent) => {
     e.stopPropagation();
+    setDeletingFaqId(id);
+    setIsDeleteModalOpen(true);
+  };
 
-    if (!confirm("Are you sure you want to delete this FAQ item?")) return;
+  const confirmDelete = async () => {
+    if (!deletingFaqId) return;
 
+    setDeleting(true);
     toast.loading("Deleting FAQ...", { id: "delete-faq" });
     try {
-      const res = await myFetch(`/public/faq/${id}`, {
+      const res = await myFetch(`/public/faq/${deletingFaqId}`, {
         method: "DELETE",
       });
 
       if (res.success) {
         toast.success("FAQ item deleted successfully!", { id: "delete-faq" });
+        setIsDeleteModalOpen(false);
+        setDeletingFaqId(null);
         fetchFaqs();
       } else {
         toast.error(res.message || res.error || "Failed to delete FAQ", {
@@ -72,6 +84,8 @@ export default function FAQPage() {
       }
     } catch {
       toast.error("Error deleting FAQ", { id: "delete-faq" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -162,7 +176,7 @@ export default function FAQPage() {
                               <Pencil className="h-3.5 w-3.5 stroke-[2]" />
                             </button>
                             <button
-                              onClick={(e) => handleDelete(itemId, e)}
+                              onClick={(e) => handleOpenDelete(itemId, e)}
                               className="text-slate-400 hover:text-red-500 transition-colors p-0.5 cursor-pointer"
                               title="Delete FAQ"
                             >
@@ -217,6 +231,16 @@ export default function FAQPage() {
         onClose={() => setIsEditModalOpen(false)}
         faq={selectedFaq}
         onSuccess={fetchFaqs}
+      />
+
+      {/* Delete FAQ Confirmation Modal */}
+      <DeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        loading={deleting}
+        title="Delete FAQ Item"
+        description="Are you sure you want to delete this FAQ item? This action cannot be undone."
       />
     </div>
   );

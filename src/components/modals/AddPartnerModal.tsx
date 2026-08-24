@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
-import { User, Mail, Phone } from "lucide-react";
+import React, { useState } from "react";
+import { User, Mail, Phone, Briefcase, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,54 +11,62 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
+import { myFetch } from "@/utils/myFetch";
 
 interface AddPartnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddPartner: (newPartner: any) => void;
+  onSuccess: () => void;
 }
 
 export default function AddPartnerModal({
   isOpen,
   onClose,
-  onAddPartner,
+  onSuccess,
 }: AddPartnerModalProps) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const name = formData.get("fullName") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
+    const fullName = (formData.get("fullName") as string)?.trim();
+    const email = (formData.get("email") as string)?.trim();
+    const phone = (formData.get("phone") as string)?.trim();
+    const rolePosition = "Partner";
 
-    if (!name || !email) {
+    if (!fullName || !email || !phone) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    const initials = name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
+    setSubmitting(true);
+    toast.loading("Adding partner...", { id: "add-partner" });
 
-    const newPartner = {
-      id: `P-${Date.now()}`,
-      name,
-      initials: initials || "PA",
-      avatarBg: "bg-[#10B981]",
-      email,
-      phone,
-      dateAdded: new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-    };
+    try {
+      const res = await myFetch("/partner", {
+        method: "POST",
+        body: {
+          fullName,
+          rolePosition,
+          email,
+          phone,
+        },
+      });
 
-    onAddPartner(newPartner);
-    toast.success("Partner added successfully!");
-    onClose();
+      if (res.success) {
+        toast.success("Partner added successfully!", { id: "add-partner" });
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message || res.error || "Failed to add partner", {
+          id: "add-partner",
+        });
+      }
+    } catch {
+      toast.error("Error connecting to server", { id: "add-partner" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -71,7 +78,7 @@ export default function AddPartnerModal({
             Add Partner
           </DialogTitle>
           <p className="text-xs text-slate-400 font-normal">
-            Fill in the details below to add a new partner.
+            Fill in the details below to add a new business partner.
           </p>
         </DialogHeader>
 
@@ -80,7 +87,7 @@ export default function AddPartnerModal({
           {/* Full Name */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="fullName" className="text-xs font-semibold text-slate-700">
-              Full Name
+              Full Name <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -98,7 +105,7 @@ export default function AddPartnerModal({
           {/* Email Address */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="email" className="text-xs font-semibold text-slate-700">
-              Email Address
+              Email Address <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -116,7 +123,7 @@ export default function AddPartnerModal({
           {/* Phone Number */}
           <div className="space-y-1.5 text-left">
             <Label htmlFor="phone" className="text-xs font-semibold text-slate-700">
-              Phone Number
+              Phone Number <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <div className="relative">
               <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -142,9 +149,11 @@ export default function AddPartnerModal({
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none"
+              disabled={submitting}
+              className="flex-1 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm rounded-xl transition-colors cursor-pointer shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Add Partner
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Add Partner</span>
             </button>
           </div>
         </form>
