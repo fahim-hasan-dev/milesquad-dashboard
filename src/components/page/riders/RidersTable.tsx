@@ -31,10 +31,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import RejectReasonModal from "@/components/modals/RejectReasonModal";
+import DeleteModal from "@/components/modals/DeleteModal";
 import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
+import CopyButton from "@/components/common/CopyButton";
+import Pagination from "@/components/common/Pagination";
 
 interface DriverItem {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   contact: string;
@@ -61,13 +67,27 @@ export default function RidersTable() {
 
   const fetchDrivers = useCallback(async () => {
     setLoading(true);
-    let query = `/user?role=driver&page=${currentPage}&limit=20`;
+    const queryParams = new URLSearchParams();
+    queryParams.set("role", "driver");
+    queryParams.set("page", currentPage.toString());
+    queryParams.set("limit", "10");
+
+    if (activeTab === "active") {
+      queryParams.set("driverInfo.profileVerification", "approved");
+      if (statusFilter !== "All") {
+        const statusValue = statusFilter === "Suspended" ? "restricted" : statusFilter.toLowerCase();
+        queryParams.set("status", statusValue);
+      }
+    } else {
+      queryParams.set("driverInfo.profileVerification", "pending");
+    }
+
     if (searchTerm.trim()) {
-      query += `&searchTerm=${encodeURIComponent(searchTerm.trim())}`;
+      queryParams.set("searchTerm", searchTerm.trim());
     }
 
     try {
-      const res = await myFetch(query);
+      const res = await myFetch(`/user?${queryParams.toString()}`);
       if (res.success && res.data) {
         const rawDrivers = res.data.users || [];
         const formattedDrivers: DriverItem[] = rawDrivers.map((d: any) => {
@@ -76,12 +96,13 @@ export default function RidersTable() {
 
           return {
             id: d._id,
+            userId: d.userId || d._id,
             name: d.fullName || d.name || "N/A",
             email: d.email || "N/A",
             contact: d.phone || "N/A",
             location: d.location || d.address || "N/A",
             role: "Driver",
-            vehicle: d.driverInfo?.vehicleType || "Motorcycle / Van",
+            vehicle: d.driverInfo?.vehicleType || d.vehicleType || "N/A",
             verification: verificationStatus,
             status:
               rawStatus === "active"
@@ -89,9 +110,7 @@ export default function RidersTable() {
                 : rawStatus === "restricted" || rawStatus === "blocked"
                 ? "Suspended"
                 : "Active",
-            avatar:
-              d.image ||
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            avatar: d.image ? getImageUrl(d.image) : "",
             dateApplied: d.createdAt
               ? new Date(d.createdAt).toLocaleDateString("en-US", {
                   day: "numeric",
@@ -109,15 +128,11 @@ export default function RidersTable() {
           };
         });
 
-        const activeList = formattedDrivers.filter(
-          (d) => d.verification === "approved"
-        );
-        const requestsList = formattedDrivers.filter(
-          (d) => d.verification !== "approved"
-        );
-
-        setActiveRiders(activeList);
-        setNewRequests(requestsList);
+        if (activeTab === "active") {
+          setActiveRiders(formattedDrivers);
+        } else {
+          setNewRequests(formattedDrivers);
+        }
 
         if (res.data.meta) {
           setTotalPages(res.data.meta.totalPage || 1);
@@ -131,7 +146,7 @@ export default function RidersTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, statusFilter, activeTab]);
 
   useEffect(() => {
     fetchDrivers();
@@ -157,24 +172,27 @@ export default function RidersTable() {
     }
   };
 
-  const handleReject = async (id: string) => {
-    const reason = window.prompt(
-      "Enter reason for rejecting driver profile:",
-      "Invalid or incomplete documents"
-    );
-    if (reason === null) return;
+  const [rejectDriverItem, setRejectDriverItem] = useState<DriverItem | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
 
+  const [deleteDriverId, setDeleteDriverId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmReject = async (reason: string) => {
+    if (!rejectDriverItem) return;
+    setIsRejecting(true);
     toast.loading("Rejecting driver verification...", { id: "reject-driver" });
     try {
-      const res = await myFetch(`/user/driver-verification/${id}`, {
+      const res = await myFetch(`/user/driver-verification/${rejectDriverItem.id}`, {
         method: "PATCH",
         body: {
           status: "rejected",
-          rejectReason: reason.trim() || "Invalid or incomplete documents",
+          rejectReason: reason,
         },
       });
       if (res.success) {
         toast.success("Driver verification rejected successfully!", { id: "reject-driver" });
+        setRejectDriverItem(null);
         fetchDrivers();
       } else {
         toast.error(res.message || res.error || "Failed to reject driver", {
@@ -183,15 +201,20 @@ export default function RidersTable() {
       }
     } catch {
       toast.error("Error rejecting driver", { id: "reject-driver" });
+    } finally {
+      setIsRejecting(false);
     }
   };
 
-  const handleRemove = async (id: string) => {
+  const handleConfirmDelete = async () => {
+    if (!deleteDriverId) return;
+    setIsDeleting(true);
     toast.loading("Removing driver...", { id: "remove-driver" });
     try {
-      const res = await myFetch(`/user/${id}`, { method: "DELETE" });
+      const res = await myFetch(`/user/${deleteDriverId}`, { method: "DELETE" });
       if (res.success) {
         toast.success("Driver removed successfully", { id: "remove-driver" });
+        setDeleteDriverId(null);
         fetchDrivers();
       } else {
         toast.error(res.message || res.error || "Failed to remove driver", {
@@ -200,52 +223,12 @@ export default function RidersTable() {
       }
     } catch {
       toast.error("Error removing driver", { id: "remove-driver" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  // Filter Active Riders
-  const filteredActive = activeRiders.filter((r) => {
-    const matchesSearch =
-      r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "All" ||
-      r.status.toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Filter New Requests
-  const filteredRequests = newRequests.filter((r) => {
-    return (
-      r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
-
-
-
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
 
   return (
     <div className="space-y-6">
@@ -408,20 +391,26 @@ export default function RidersTable() {
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={row.avatar}
-                          alt={row.name}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                        />
+                        {row.avatar ? (
+                          <Image
+                            src={row.avatar}
+                            alt={row.name}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-[#10B981] text-white font-black flex items-center justify-center text-base shrink-0 shadow-sm">
+                            {(row.name || "R").charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 leading-tight">
                             {row.name}
                           </h4>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
-                            <MapPin className="h-3 w-3 text-slate-300" />
-                            <span>{row.location}</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 mt-0.5 font-medium">
+                            <span>#{row.userId || row.id.slice(-6)}</span>
+                            <CopyButton text={row.userId || row.id} label="Rider ID" />
                           </div>
                         </div>
                       </div>
@@ -474,7 +463,7 @@ export default function RidersTable() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleRemove(row.id)}
+                            onClick={() => setDeleteDriverId(row.id)}
                             className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -520,18 +509,27 @@ export default function RidersTable() {
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={row.avatar}
-                          alt={row.name}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                        />
+                        {row.avatar ? (
+                          <Image
+                            src={row.avatar}
+                            alt={row.name}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-[#10B981] text-white font-black flex items-center justify-center text-base shrink-0 shadow-sm">
+                            {(row.name || "R").charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 leading-tight">
                             {row.name}
                           </h4>
-                          <span className="text-xs text-slate-400 font-medium">{row.email}</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 mt-0.5 font-medium">
+                            <span>#{row.userId || row.id.slice(-6)}</span>
+                            <CopyButton text={row.userId || row.id} label="Rider ID" />
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -569,7 +567,7 @@ export default function RidersTable() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleReject(row.id)}
+                            onClick={() => setRejectDriverItem(row)}
                             className="flex items-center gap-2.5 text-xs font-semibold text-[#D97706] py-2 cursor-pointer"
                           >
                             <X className="h-4 w-4 text-[#D97706]" />
@@ -577,7 +575,7 @@ export default function RidersTable() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleRemove(row.id)}
+                            onClick={() => setDeleteDriverId(row.id)}
                             className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -601,44 +599,12 @@ export default function RidersTable() {
         </div>
       </div>
 
-      {/* Pagination Controls - Restored Original Design (rounded-full circular buttons) */}
-      <div className="flex items-center justify-center gap-2 pt-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        {getPageNumbers().map((page, idx) =>
-          typeof page === "number" ? (
-            <button
-              key={idx}
-              onClick={() => setCurrentPage(page)}
-              className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                currentPage === page
-                  ? "bg-[#10B981] text-white shadow-sm"
-                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
-              ...
-            </span>
-          )
-        )}
-
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages || totalPages === 0}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Pagination Controls */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
 
       {/* Export Data Modal */}
       <ExportDataModal
@@ -652,6 +618,25 @@ export default function RidersTable() {
           { label: "Suspended", value: "Suspended" },
           { label: "Pending", value: "Pending" },
         ]}
+      />
+      {/* Reject Reason Modal */}
+      <RejectReasonModal
+        isOpen={Boolean(rejectDriverItem)}
+        onClose={() => setRejectDriverItem(null)}
+        onConfirm={handleConfirmReject}
+        loading={isRejecting}
+        driverName={rejectDriverItem?.name || "Driver"}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={Boolean(deleteDriverId)}
+        onClose={() => setDeleteDriverId(null)}
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+        title="Remove Driver Account?"
+        description="Are you sure you want to remove this driver? This action cannot be undone."
+        actionBtnText="Remove Driver"
       />
     </div>
   );

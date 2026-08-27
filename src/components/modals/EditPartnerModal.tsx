@@ -15,6 +15,7 @@ import { myFetch } from "@/utils/myFetch";
 
 export interface PartnerData {
   _id: string;
+  partnerId?: string;
   fullName: string;
   rolePosition?: string;
   email: string;

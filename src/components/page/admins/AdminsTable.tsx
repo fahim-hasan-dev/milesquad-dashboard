@@ -28,6 +28,8 @@ import EditAdminModal, { AdminData } from "@/components/modals/EditAdminModal";
 import SuspendUserModal from "@/components/modals/SuspendUserModal";
 import DeleteModal from "@/components/modals/DeleteModal";
 import { myFetch } from "@/utils/myFetch";
+import CopyButton from "@/components/common/CopyButton";
+import Pagination from "@/components/common/Pagination";
 
 export default function AdminsTable() {
   const [admins, setAdmins] = useState<AdminData[]>([]);
@@ -55,10 +57,11 @@ export default function AdminsTable() {
       queryParams.set("page", currentPage.toString());
       queryParams.set("limit", "10");
       if (searchTerm.trim()) {
-        queryParams.set("search", searchTerm.trim());
+        queryParams.set("searchTerm", searchTerm.trim());
       }
       if (statusFilter !== "All") {
-        queryParams.set("status", statusFilter.toLowerCase());
+        const statusVal = statusFilter === "Blocked" ? "restricted" : statusFilter.toLowerCase();
+        queryParams.set("status", statusVal);
       }
 
       const res = await myFetch(`/admin?${queryParams.toString()}`);
@@ -151,21 +154,7 @@ export default function AdminsTable() {
     }
   };
 
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
+
 
   return (
     <div className="space-y-6">
@@ -274,9 +263,12 @@ export default function AdminsTable() {
                             <h4 className="text-sm font-bold text-slate-900 leading-tight">
                               {row.fullName}
                             </h4>
-                            <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
-                              ID: #{row._id.slice(-6)}
-                            </span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                ID: #{row._id.slice(-6)}
+                              </span>
+                              <CopyButton text={row._id} label="Admin ID" />
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -297,11 +289,10 @@ export default function AdminsTable() {
 
                       {/* Role Cell */}
                       <td className="py-4 px-4">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md ${
-                          isSuperAdmin
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md ${isSuperAdmin
                             ? "bg-purple-50 text-purple-700 border border-purple-100"
                             : "bg-slate-100 text-slate-700"
-                        }`}>
+                          }`}>
                           {isSuperAdmin ? (
                             <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />
                           ) : (
@@ -351,11 +342,10 @@ export default function AdminsTable() {
                                 setSelectedAdmin(row);
                                 setIsSuspendModalOpen(true);
                               }}
-                              className={`flex items-center gap-2.5 text-xs font-semibold py-2 cursor-pointer ${
-                                row.status === "active"
+                              className={`flex items-center gap-2.5 text-xs font-semibold py-2 cursor-pointer ${row.status === "active"
                                   ? "text-[#D97706]"
                                   : "text-[#10B981]"
-                              }`}
+                                }`}
                             >
                               {row.status === "active" ? (
                                 <>
@@ -397,49 +387,12 @@ export default function AdminsTable() {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-xs font-medium text-slate-500">
-          Showing {admins.length} of {totalItems} admins
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1 || loading}
-            className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-
-          {getPageNumbers().map((page, idx) =>
-            typeof page === "number" ? (
-              <button
-                key={idx}
-                onClick={() => setCurrentPage(page)}
-                className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                  currentPage === page
-                    ? "bg-[#10B981] text-white shadow-sm"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {page}
-              </button>
-            ) : (
-              <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
-                ...
-              </span>
-            )
-          )}
-
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages || totalPages === 0 || loading}
-            className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        onPageChange={setCurrentPage}
+      />
 
       {/* Add Admin Modal */}
       <AddAdminModal

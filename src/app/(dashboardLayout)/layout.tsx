@@ -24,6 +24,7 @@ import { KeyRound, UserPen, Camera, LogOut, Loader2 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
+import { getImageUrl } from "@/utils/imageUrl";
 
 export default function DashboardLayout({
   children,
@@ -37,7 +38,7 @@ export default function DashboardLayout({
 
   const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
   const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
-  const adminAvatar = currentUserObj.image || null;
+  const adminAvatar = getImageUrl(currentUserObj.image);
   const adminRole = currentUserObj.role || "Admin";
 
   const userRole = (currentUserObj.role || "").toLowerCase();

@@ -24,9 +24,12 @@ import {
 } from "lucide-react";
 import SuspendUserModal from "@/components/modals/SuspendUserModal";
 import TrackDriverModal from "@/components/modals/TrackDriverModal";
+import RejectReasonModal from "@/components/modals/RejectReasonModal";
+import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 import { SERVER_URL } from "@/config/env-config";
+import { getTrackingSocket } from "@/utils/socket";
 
 interface DriverDetailData {
   id: string;
@@ -64,6 +67,54 @@ function RiderDetailsContent() {
   const [loading, setLoading] = useState(true);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+  const [isCheckingLiveLocation, setIsCheckingLiveLocation] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const handleTrackDriverClick = () => {
+    if (!rider?.id) return;
+    setIsCheckingLiveLocation(true);
+
+    const socket = getTrackingSocket();
+    let isHandled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!isHandled) {
+        isHandled = true;
+        setIsCheckingLiveLocation(false);
+        socket.off("single-driver:location-updated", handleLocationReceived);
+        socket.off("single-driver:offline", handleDriverOffline);
+        toast.error("Driver is currently offline. Live location unavailable.");
+      }
+    }, 3000);
+
+    const handleLocationReceived = (rawPayload: any) => {
+      if (isHandled) return;
+      const data = typeof rawPayload === "string" ? JSON.parse(rawPayload) : rawPayload;
+      if (data && data.lat && data.lng) {
+        isHandled = true;
+        clearTimeout(timeoutId);
+        setIsCheckingLiveLocation(false);
+        socket.off("single-driver:location-updated", handleLocationReceived);
+        socket.off("single-driver:offline", handleDriverOffline);
+        setLiveCoords({ lat: Number(data.lat), lng: Number(data.lng) });
+        setIsTrackModalOpen(true);
+      }
+    };
+
+    const handleDriverOffline = () => {
+      if (isHandled) return;
+      isHandled = true;
+      clearTimeout(timeoutId);
+      setIsCheckingLiveLocation(false);
+      socket.off("single-driver:location-updated", handleLocationReceived);
+      socket.off("single-driver:offline", handleDriverOffline);
+      toast.error("Driver is currently offline. Live location unavailable.");
+    };
+
+    socket.on("single-driver:location-updated", handleLocationReceived);
+    socket.on("single-driver:offline", handleDriverOffline);
+    socket.emit("admin:track-single-driver", { driverId: rider.id });
+  };
 
   const fetchRiderDetails = async () => {
     if (!targetId) return;
@@ -87,9 +138,7 @@ function RiderDetailsContent() {
               : d.status === "RESTRICTED" || d.status === "BLOCKED"
               ? "Suspended"
               : "Inactive",
-          avatar:
-            d.image ||
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+          avatar: d.image ? getImageUrl(d.image) : "",
           joinedDate: d.createdAt
             ? new Date(d.createdAt).toLocaleDateString("en-US", {
                 day: "numeric",
@@ -139,25 +188,24 @@ function RiderDetailsContent() {
     }
   };
 
-  const handleRejectDriver = async () => {
-    if (!targetId) return;
-    const reason = window.prompt(
-      "Enter reason for rejecting driver profile:",
-      "Invalid or incomplete document scans"
-    );
-    if (reason === null) return;
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
+  const handleConfirmRejectDriver = async (reason: string) => {
+    if (!targetId) return;
+    setIsRejecting(true);
     toast.loading("Rejecting driver verification...", { id: "reject-driver" });
     try {
       const res = await myFetch(`/user/driver-verification/${targetId}`, {
         method: "PATCH",
         body: {
           status: "rejected",
-          rejectReason: reason.trim() || "Invalid or incomplete document scans",
+          rejectReason: reason,
         },
       });
       if (res.success) {
         toast.success("Driver verification rejected successfully!", { id: "reject-driver" });
+        setIsRejectModalOpen(false);
         fetchRiderDetails();
       } else {
         toast.error(res.message || res.error || "Failed to reject driver", {
@@ -166,6 +214,8 @@ function RiderDetailsContent() {
       }
     } catch {
       toast.error("Error rejecting driver", { id: "reject-driver" });
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -269,7 +319,7 @@ function RiderDetailsContent() {
                 <span>Approve Driver</span>
               </button>
               <button
-                onClick={handleRejectDriver}
+                onClick={() => setIsRejectModalOpen(true)}
                 className="border border-red-200 text-red-500 hover:bg-red-50 text-xs md:text-sm font-semibold px-6 py-2.5 rounded-xl transition-all cursor-pointer bg-white shadow-none flex items-center gap-2"
               >
                 <X className="h-4 w-4" />
@@ -278,10 +328,12 @@ function RiderDetailsContent() {
             </>
           ) : (
             <button
-              onClick={() => setIsTrackModalOpen(true)}
-              className="bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm px-6 py-2.5 rounded-xl transition-all shadow-none cursor-pointer"
+              onClick={handleTrackDriverClick}
+              disabled={isCheckingLiveLocation}
+              className="bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs md:text-sm px-6 py-2.5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2 disabled:opacity-60"
             >
-              Track User
+              {isCheckingLiveLocation && <Loader2 className="h-4 w-4 animate-spin text-white" />}
+              <span>{isCheckingLiveLocation ? "Checking Live GPS..." : "Track User"}</span>
             </button>
           )}
         </div>
@@ -293,13 +345,19 @@ function RiderDetailsContent() {
         <div className="w-full lg:w-[360px] shrink-0 bg-white rounded-2xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
           {/* Avatar Picture */}
           <div className="relative mb-3">
-            <Image
-              src={rider.avatar}
-              alt={rider.name}
-              width={100}
-              height={100}
-              className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm"
-            />
+            {rider.avatar ? (
+              <Image
+                src={rider.avatar}
+                alt={rider.name}
+                width={100}
+                height={100}
+                className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-[#10B981] text-white font-black flex items-center justify-center text-2xl shadow-sm border-4 border-slate-50">
+                {(rider.name || "R").charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
 
           {/* User Name & ID */}
@@ -312,7 +370,13 @@ function RiderDetailsContent() {
 
           {/* Status & Driver Badge */}
           <div className="flex items-center gap-2 mb-2">
-            {renderStatusBadge(rider.verification === "APPROVED" ? "Active" : "Pending")}
+            {renderStatusBadge(
+              rider.verification === "approved" || rider.verification === "APPROVED"
+                ? "Active"
+                : rider.verification === "rejected" || rider.verification === "REJECTED"
+                ? "Suspended"
+                : "Pending"
+            )}
             <span className="inline-block bg-[#FFF7ED] text-[#EA580C] text-xs font-bold px-3 py-1 rounded-full border border-amber-200/50">
               {rider.vehicle}
             </span>
@@ -354,13 +418,19 @@ function RiderDetailsContent() {
           </h3>
 
           <div className="flex items-center gap-4">
-            <Image
-              src={rider.avatar}
-              alt="Profile Picture"
-              width={64}
-              height={64}
-              className="w-16 h-16 rounded-full object-cover border border-slate-100 shadow-sm"
-            />
+            {rider.avatar ? (
+              <Image
+                src={rider.avatar}
+                alt="Profile Picture"
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full object-cover border border-slate-100 shadow-sm"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-[#10B981] text-white font-bold flex items-center justify-center text-xl shadow-sm border border-slate-100">
+                {(rider.name || "R").charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <h4 className="text-sm md:text-base font-bold text-[#18181B]">
                 Profile Picture
@@ -451,14 +521,28 @@ function RiderDetailsContent() {
       </div>
 
       {/* Track Driver Live Google Map Modal */}
-      <TrackDriverModal
-        isOpen={isTrackModalOpen}
-        onClose={() => setIsTrackModalOpen(false)}
+      {isTrackModalOpen && liveCoords && (
+        <TrackDriverModal
+          isOpen={isTrackModalOpen}
+          onClose={() => setIsTrackModalOpen(false)}
+          driverId={rider.id}
+          driverName={rider.name}
+          driverAvatar={rider.avatar}
+          vehicle={rider.vehicle}
+          contact={rider.contact}
+          locationName={rider.location}
+          initialLat={liveCoords.lat}
+          initialLng={liveCoords.lng}
+        />
+      )}
+
+      {/* Reject Reason Modal */}
+      <RejectReasonModal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        onConfirm={handleConfirmRejectDriver}
+        loading={isRejecting}
         driverName={rider.name}
-        driverAvatar={rider.avatar}
-        vehicle={rider.vehicle}
-        contact={rider.contact}
-        locationName={rider.location}
       />
     </div>
   );

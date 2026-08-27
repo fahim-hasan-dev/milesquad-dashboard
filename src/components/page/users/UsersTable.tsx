@@ -24,11 +24,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
+import CopyButton from "@/components/common/CopyButton";
+import Pagination from "@/components/common/Pagination";
 
 interface UserItem {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   contact: string;
@@ -76,15 +81,14 @@ export default function UsersTable() {
 
           return {
             id: u._id,
+            userId: u.userId || u._id,
             name: u.fullName || u.name || "N/A",
             email: u.email || "",
             contact: u.phone || "N/A",
             location: u.location || u.address || "N/A",
             role: "Customer",
             status: displayStatus,
-            avatar:
-              u.image ||
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            avatar: u.image ? getImageUrl(u.image) : "",
             createdAt: u.createdAt,
           };
         });
@@ -108,36 +112,30 @@ export default function UsersTable() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleRemove = async (id: string) => {
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteUserId) return;
+    setIsDeleting(true);
     toast.loading("Removing user...", { id: "remove-user" });
     try {
-      const res = await myFetch(`/user/${id}`, { method: "DELETE" });
+      const res = await myFetch(`/user/${deleteUserId}`, { method: "DELETE" });
       if (res.success) {
         toast.success("User removed successfully", { id: "remove-user" });
+        setDeleteUserId(null);
         fetchUsers();
       } else {
         toast.error(res.message || res.error || "Failed to remove user", { id: "remove-user" });
       }
     } catch {
       toast.error("Error removing user", { id: "remove-user" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
+
 
   return (
     <div className="space-y-6">
@@ -269,20 +267,26 @@ export default function UsersTable() {
                     {/* User Profile Cell */}
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={row.avatar}
-                          alt={row.name}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                        />
+                        {row.avatar ? (
+                          <Image
+                            src={row.avatar}
+                            alt={row.name}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-[#10B981] text-white font-black flex items-center justify-center text-base shrink-0 shadow-sm">
+                            {(row.name || "U").charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 leading-tight">
                             {row.name}
                           </h4>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
-                            <MapPin className="h-3 w-3 text-slate-300" />
-                            <span>{row.location}</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 mt-0.5 font-medium">
+                            <span>#{row.userId || row.id.slice(-6)}</span>
+                            <CopyButton text={row.userId || row.id} label="User ID" />
                           </div>
                         </div>
                       </div>
@@ -344,7 +348,7 @@ export default function UsersTable() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleRemove(row.id)}
+                            onClick={() => setDeleteUserId(row.id)}
                             className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -367,44 +371,23 @@ export default function UsersTable() {
         </div>
       </div>
 
-      {/* Pagination Controls - Restored Original Design (rounded-full circular buttons) */}
-      <div className="flex items-center justify-center gap-2 pt-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+      {/* Pagination Controls */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
 
-        {getPageNumbers().map((page, idx) =>
-          typeof page === "number" ? (
-            <button
-              key={idx}
-              onClick={() => setCurrentPage(page)}
-              className={`size-9 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                currentPage === page
-                  ? "bg-[#10B981] text-white shadow-sm"
-                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span key={idx} className="text-slate-400 font-semibold text-xs px-1">
-              ...
-            </span>
-          )
-        )}
-
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages || totalPages === 0}
-          className="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={Boolean(deleteUserId)}
+        onClose={() => setDeleteUserId(null)}
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+        title="Remove Customer Account?"
+        description="Are you sure you want to remove this user? This action cannot be undone."
+        actionBtnText="Remove User"
+      />
     </div>
   );
 }

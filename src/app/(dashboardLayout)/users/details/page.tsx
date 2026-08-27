@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface UserOrderItem {
   sl: number;
@@ -37,6 +38,7 @@ interface UserOrderItem {
 
 interface UserDetailData {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   contact: string;
@@ -91,10 +93,10 @@ function UserDetailsContent() {
               price: `$${numPrice.toFixed(2)}`,
               bookingDate: p.createdAt
                 ? new Date(p.createdAt).toLocaleDateString("en-US", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
                 : "N/A",
               status: (p.status || "PENDING").toUpperCase(),
             };
@@ -104,30 +106,39 @@ function UserDetailsContent() {
 
         if (userRes.success && userRes.data) {
           const u = userRes.data;
+          const userStatusRaw = (u.status || "").toLowerCase();
+          const displayStatus =
+            userStatusRaw === "active"
+              ? "Active"
+              : userStatusRaw === "restricted" || userStatusRaw === "blocked"
+                ? "Suspended"
+                : userStatusRaw === "pending"
+                  ? "Pending"
+                  : "Active";
+
           setUser({
             id: u._id,
+            userId: u.userId || u._id,
             name: u.fullName || u.name || "N/A",
             email: u.email || "N/A",
             contact: u.phone || "N/A",
-            location: u.location || u.address || "N/A",
+            location:
+              typeof u.address === "string" && u.address
+                ? u.address
+                : Array.isArray(u.location) && u.location.length === 2
+                  ? `Lat: ${u.location[1]}, Lng: ${u.location[0]}`
+                  : typeof u.location === "string" && u.location
+                    ? u.location
+                    : "N/A",
             role: u.role || "Customer",
-            status:
-              u.status === "ACTIVE"
-                ? "Active"
-                : u.status === "RESTRICTED" || u.status === "BLOCKED"
-                ? "Suspended"
-                : u.status === "PENDING"
-                ? "Pending"
-                : "Inactive",
-            avatar:
-              u.image ||
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+            status: displayStatus,
+            avatar: u.image ? getImageUrl(u.image) : "",
             joinedDate: u.createdAt
               ? new Date(u.createdAt).toLocaleDateString("en-US", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
               : "N/A",
             totalOrders: ordersList.length,
             totalSpent: `$${computedTotalSpent.toFixed(2)}`,
@@ -235,13 +246,19 @@ function UserDetailsContent() {
         <div className="w-full lg:w-[360px] shrink-0 bg-white rounded-2xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
           {/* Avatar Picture */}
           <div className="relative mb-4">
-            <Image
-              src={user.avatar}
-              alt={user.name}
-              width={112}
-              height={112}
-              className="w-28 h-28 rounded-full object-cover border-4 border-slate-50 shadow-sm"
-            />
+            {user.avatar ? (
+              <Image
+                src={user.avatar}
+                alt={user.name}
+                width={112}
+                height={112}
+                className="w-28 h-28 rounded-full object-cover border-4 border-slate-50 shadow-sm"
+              />
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-[#10B981] text-white font-black flex items-center justify-center text-3xl shadow-sm border-4 border-slate-50">
+                {(user.name || "U").charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
 
           {/* User Name & ID */}
@@ -249,7 +266,7 @@ function UserDetailsContent() {
             {user.name}
           </h2>
           <span className="text-xs font-medium text-slate-400 mt-1 mb-3 block tracking-wide">
-            #{user.id}
+            #{user.userId || user.id}
           </span>
 
           {/* Status Badge */}
