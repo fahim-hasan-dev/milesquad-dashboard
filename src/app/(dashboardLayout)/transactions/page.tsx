@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   ArrowLeftRight,
   Search,
@@ -16,12 +17,13 @@ import {
   Building,
   Banknote,
   MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpRight,
   User,
   Building2,
   FileText,
+  Loader2,
+  Check,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,25 +33,58 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ViewReceiptModal from "@/components/modals/ViewReceiptModal";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import RejectReasonModal from "@/components/modals/RejectReasonModal";
 import Pagination from "@/components/common/Pagination";
-import {
-  masterPaymentTransactions,
-  masterPayoutsList,
-  PaymentTransactionRecord,
-  PayoutRecord,
-} from "@/demoData/transactionsManagementData";
+import CopyButton from "@/components/common/CopyButton";
+import toast from "react-hot-toast";
+import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
 
-const ITEMS_PER_PAGE = 10;
+interface TransactionItem {
+  id: string;
+  transactionId: string;
+  user: {
+    id: string;
+    userId?: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+    avatar: string;
+  };
+  parcel?: {
+    id: string;
+    parcelId: string;
+    goodType: string;
+    totalDeliveryFee: number;
+  };
+  amount: number;
+  type: string;
+  status: string;
+  paymentMethod: string;
+  accountDetails: string;
+  description: string;
+  rejectReason?: string;
+  date: string;
+}
 
 export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<"transactions" | "payouts">("transactions");
-  const [payments] = useState<PaymentTransactionRecord[]>(masterPaymentTransactions);
-  const [payouts] = useState<PayoutRecord[]>(masterPayoutsList);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Reject Payout Modal State
+  const [rejectPayoutItem, setRejectPayoutItem] = useState<TransactionItem | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+
   const [selectedReceiptData, setSelectedReceiptData] = useState<{
     id: string;
     customerOrRecipient: string;
@@ -60,84 +95,209 @@ export default function TransactionsPage() {
     date: string;
   } | null>(null);
 
-  const getMethodIcon = (method: string) => {
-    switch (method) {
-      case "Mobile Money":
-        return Smartphone;
-      case "Bank Transfer":
-        return Building;
-      case "Card":
-        return CreditCard;
-      case "Cash":
-      default:
-        return Banknote;
+  // Overall dynamic stats
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalDisbursed: 0,
+    pendingPaymentsCount: 0,
+    processingPayoutsCount: 0,
+    failedPaymentsCount: 0,
+    failedPayoutsCount: 0,
+  });
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const [paymentRes, payoutRes] = await Promise.all([
+        myFetch("/transaction?type=payment&limit=1000"),
+        myFetch("/transaction?type=payout&limit=1000"),
+      ]);
+
+      const payments: any[] = paymentRes?.data?.data || paymentRes?.data || [];
+      const payouts: any[] = payoutRes?.data?.data || payoutRes?.data || [];
+
+      const totalRev = payments
+        .filter((p: any) => p.status === "completed")
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+      const totalDisb = payouts
+        .filter((p: any) => p.status === "completed")
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+      const pendingPay = payments.filter((p: any) => p.status === "pending").length;
+      const procPayout = payouts.filter((p: any) => p.status === "pending" || p.status === "processing").length;
+
+      const failedPay = payments.filter((p: any) => p.status === "failed" || p.status === "cancelled").length;
+      const failedPayout = payouts.filter((p: any) => p.status === "failed" || p.status === "rejected").length;
+
+      setStats({
+        totalRevenue: totalRev,
+        totalDisbursed: totalDisb,
+        pendingPaymentsCount: pendingPay,
+        processingPayoutsCount: procPayout,
+        failedPaymentsCount: failedPay,
+        failedPayoutsCount: failedPayout,
+      });
+    } catch (err) {
+      console.error("Error fetching transaction stats:", err);
+    }
+  }, []);
+
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true);
+    const queryParams = new URLSearchParams();
+    queryParams.set("type", activeTab === "transactions" ? "payment" : "payout");
+    queryParams.set("page", currentPage.toString());
+    queryParams.set("limit", "10");
+    queryParams.set("sort", "-createdAt");
+
+    if (searchTerm.trim()) {
+      queryParams.set("searchTerm", searchTerm.trim());
+    }
+
+    if (statusFilter !== "All") {
+      queryParams.set("status", statusFilter.toLowerCase());
+    }
+
+    try {
+      const res = await myFetch(`/transaction?${queryParams.toString()}`);
+      if (res.success && res.data) {
+        const rawList = res.data.data || res.data.result || [];
+        const formatted: TransactionItem[] = rawList.map((t: any) => {
+          const userData = t.user || {};
+          const parcelData = t.parcel || {};
+
+          return {
+            id: t._id,
+            transactionId:
+              t.transactionId && !t.transactionId.startsWith("pi_")
+                ? t.transactionId
+                : `MS-TXN-${(t._id || "").slice(-7).toUpperCase()}`,
+            user: {
+              id: userData._id || "",
+              userId: userData.userId || userData._id,
+              name: userData.fullName || userData.name || "Customer",
+              email: userData.email || "",
+              phone: userData.phone || "N/A",
+              role: (userData.role || "customer").toLowerCase(),
+              avatar: userData.image ? getImageUrl(userData.image) : "",
+            },
+            parcel: parcelData._id
+              ? {
+                  id: parcelData._id,
+                  parcelId: parcelData.parcelId || parcelData._id,
+                  goodType: parcelData.goodType || "Parcel",
+                  totalDeliveryFee: parcelData.totalDeliveryFee || t.amount || 0,
+                }
+              : undefined,
+            amount: t.amount || 0,
+            type: t.type || (activeTab === "transactions" ? "payment" : "payout"),
+            status: (t.status || "pending").toLowerCase(),
+            paymentMethod: t.paymentMethod || "Cash",
+            accountDetails: t.accountDetails || "N/A",
+            description: t.description || "",
+            rejectReason: t.rejectReason || "",
+            date: t.createdAt
+              ? new Date(t.createdAt).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "N/A",
+          };
+        });
+
+        setTransactions(formatted);
+        if (res.data.meta) {
+          setTotalPages(res.data.meta.totalPage || res.data.meta.pageCount || 1);
+          setTotalItems(res.data.meta.total || res.data.meta.totalDoc || formatted.length);
+        }
+      } else {
+        toast.error(res.message || "Failed to load transactions");
+      }
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+      toast.error("Error loading transaction records");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  const handleApprovePayout = async (id: string) => {
+    toast.loading("Processing payout approval...", { id: "payout-status" });
+    try {
+      const res = await myFetch(`/transaction/payout-status/${id}`, {
+        method: "PATCH",
+        body: { status: "completed" },
+      });
+      if (res.success) {
+        toast.success("Payout approved and processed successfully!", { id: "payout-status" });
+        fetchTransactions();
+        fetchStats();
+      } else {
+        toast.error(res.message || res.error || "Failed to approve payout", { id: "payout-status" });
+      }
+    } catch {
+      toast.error("Error updating payout status", { id: "payout-status" });
     }
   };
 
-  const handleOpenReceipt = (data: {
-    id: string;
-    customerOrRecipient: string;
-    type?: string;
-    amount: string;
-    method: string;
-    status: string;
-    date: string;
-  }) => {
-    setSelectedReceiptData(data);
-    setIsReceiptModalOpen(true);
+  const handleConfirmRejectPayout = async (reason: string) => {
+    if (!rejectPayoutItem) return;
+    setIsRejecting(true);
+    toast.loading("Rejecting payout request...", { id: "payout-status" });
+    try {
+      const res = await myFetch(`/transaction/payout-status/${rejectPayoutItem.id}`, {
+        method: "PATCH",
+        body: {
+          status: "rejected",
+          rejectReason: reason,
+        },
+      });
+      if (res.success) {
+        toast.success("Payout request rejected successfully!", { id: "payout-status" });
+        setRejectPayoutItem(null);
+        fetchTransactions();
+        fetchStats();
+      } else {
+        toast.error(res.message || res.error || "Failed to reject payout", { id: "payout-status" });
+      }
+    } catch {
+      toast.error("Error rejecting payout request", { id: "payout-status" });
+    } finally {
+      setIsRejecting(false);
+    }
   };
 
-  // Filter Payment Transactions
-  const filteredPayments = payments.filter((txn) => {
-    const matchesSearch =
-      txn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.customer.toLowerCase().includes(searchTerm.toLowerCase());
+  const getMethodIcon = (method: string) => {
+    const m = (method || "").toLowerCase();
+    if (m.includes("mobile") || m.includes("momo") || m.includes("wave")) return Smartphone;
+    if (m.includes("bank") || m.includes("transfer")) return Building;
+    if (m.includes("card") || m.includes("stripe")) return CreditCard;
+    return Banknote;
+  };
 
-    const matchesStatus =
-      statusFilter === "All" || txn.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Filter Payouts
-  const filteredPayouts = payouts.filter((po) => {
-    const matchesSearch =
-      po.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.recipient.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "All" ||
-      po.status === statusFilter ||
-      (statusFilter === "Pending" && po.status === "Processing");
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Pagination for current active tab
-  const activeList = activeTab === "transactions" ? filteredPayments : filteredPayouts;
-  const totalItems = activeList.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedList = activeList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-
-
-  // Calculate Stat Card Numbers
-  const totalRevenueSum = payments
-    .filter((p) => p.status === "Completed")
-    .reduce((acc, curr) => acc + curr.rawAmount, 0)
-    .toLocaleString();
-
-  const totalPayoutsSum = payouts
-    .filter((p) => p.status === "Completed")
-    .reduce((acc, curr) => acc + curr.rawAmount, 0)
-    .toLocaleString();
-
-  const pendingPaymentsCount = payments.filter((p) => p.status === "Pending").length;
-  const processingPayoutsCount = payouts.filter((p) => p.status === "Processing").length;
-
-  const failedPaymentsCount = payments.filter((p) => p.status === "Failed").length;
-  const failedPayoutsCount = payouts.filter((p) => p.status === "Failed").length;
+  const handleOpenReceipt = (t: TransactionItem) => {
+    setSelectedReceiptData({
+      id: t.transactionId,
+      customerOrRecipient: t.user.name,
+      type: t.user.role === "driver" ? "Rider" : "Customer",
+      amount: `$${t.amount.toFixed(2)} XOF`,
+      method: t.paymentMethod,
+      status: t.status === "completed" ? "Completed" : t.status === "pending" ? "Pending" : "Failed",
+      date: t.date,
+    });
+    setIsReceiptModalOpen(true);
+  };
 
   return (
     <div className="space-y-6 pb-16">
@@ -191,16 +351,18 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* 3 Stat Cards */}
+      {/* 3 Dynamic Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {/* Card 1: Total Revenue / Total Payouts */}
+        {/* Card 1: Total Revenue / Total Disbursed */}
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               {activeTab === "transactions" ? "Total Revenue" : "Total Disbursed"}
             </span>
             <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions" ? `${totalRevenueSum} XOF` : `${totalPayoutsSum} XOF`}
+              {activeTab === "transactions"
+                ? `$${stats.totalRevenue.toLocaleString()} XOF`
+                : `$${stats.totalDisbursed.toLocaleString()} XOF`}
             </h2>
             <span className="text-xs text-slate-400 font-medium block">
               {activeTab === "transactions" ? "Completed transactions" : "Completed payouts"}
@@ -208,7 +370,7 @@ export default function TransactionsPage() {
           </div>
           <span className="inline-flex items-center gap-1 bg-[#E6F4EA] text-[#10B981] text-xs font-bold px-2.5 py-1 rounded-full">
             <TrendingUp className="h-3 w-3" />
-            <span>+12.5% this month</span>
+            <span>Real-time</span>
           </span>
         </div>
 
@@ -216,10 +378,10 @@ export default function TransactionsPage() {
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              {activeTab === "transactions" ? "Pending" : "Processing"}
+              {activeTab === "transactions" ? "Pending Payments" : "Processing Payouts"}
             </span>
             <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions" ? pendingPaymentsCount : processingPayoutsCount}
+              {activeTab === "transactions" ? stats.pendingPaymentsCount : stats.processingPayoutsCount}
             </h2>
             <span className="text-xs text-slate-400 font-medium block">
               Awaiting confirmation
@@ -235,18 +397,18 @@ export default function TransactionsPage() {
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Failed
+              Failed / Rejected
             </span>
             <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions" ? failedPaymentsCount : failedPayoutsCount}
+              {activeTab === "transactions" ? stats.failedPaymentsCount : stats.failedPayoutsCount}
             </h2>
             <span className="text-xs text-slate-400 font-medium block">
-              Unsuccessful payments
+              Unsuccessful records
             </span>
           </div>
           <span className="inline-flex items-center gap-1 bg-red-50 text-red-500 text-xs font-bold px-2.5 py-1 rounded-full">
             <TrendingDown className="h-3 w-3" />
-            <span>-3% vs last week</span>
+            <span>Needs attention</span>
           </span>
         </div>
       </div>
@@ -261,7 +423,7 @@ export default function TransactionsPage() {
               type="text"
               placeholder={
                 activeTab === "transactions"
-                  ? "Search reference or customer..."
+                  ? "Search transaction ID or customer..."
                   : "Search payout ID or recipient..."
               }
               value={searchTerm}
@@ -285,8 +447,8 @@ export default function TransactionsPage() {
               <DropdownMenuItem onClick={() => { setStatusFilter("Completed"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
                 Completed
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatusFilter(activeTab === "transactions" ? "Pending" : "Processing"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
-                {activeTab === "transactions" ? "Pending" : "Processing"}
+              <DropdownMenuItem onClick={() => { setStatusFilter("Pending"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
+                Pending
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { setStatusFilter("Failed"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
                 Failed
@@ -313,7 +475,7 @@ export default function TransactionsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="py-4 px-4">REFERENCE</th>
+                  <th className="py-4 px-4">TRANSACTION ID</th>
                   <th className="py-4 px-4">CUSTOMER</th>
                   <th className="py-4 px-4">AMOUNT</th>
                   <th className="py-4 px-4">METHOD</th>
@@ -323,43 +485,68 @@ export default function TransactionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(paginatedList as PaymentTransactionRecord[]).length > 0 ? (
-                  (paginatedList as PaymentTransactionRecord[]).map((row) => {
-                    const MethodIcon = getMethodIcon(row.method);
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                        <span>Loading payment transactions...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : transactions.length > 0 ? (
+                  transactions.map((row) => {
+                    const MethodIcon = getMethodIcon(row.paymentMethod);
 
                     return (
                       <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-4 px-4 text-xs font-semibold text-[#10B981]">
-                          {row.id}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#10B981]">
+                            <span>#{row.transactionId}</span>
+                            <CopyButton text={row.transactionId} label="Transaction ID" />
+                          </div>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={`size-9 rounded-full ${row.avatarBg} text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm`}
-                            >
-                              {row.initials}
+                            {row.user.avatar ? (
+                              <Image
+                                src={row.user.avatar}
+                                alt={row.user.name}
+                                width={36}
+                                height={36}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                                {(row.user.name || "C").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-xs md:text-sm font-bold text-slate-900 block leading-tight">
+                                {row.user.name}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                #{row.user.userId || row.user.id.slice(-6)}
+                              </span>
                             </div>
-                            <span className="text-xs md:text-sm font-bold text-slate-900">
-                              {row.customer}
-                            </span>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-xs md:text-sm font-bold text-slate-900">
-                          {row.amount}
+                          ${row.amount.toFixed(2)} XOF
                         </td>
                         <td className="py-4 px-4">
                           <span className="inline-flex items-center gap-1.5 bg-slate-100/80 text-slate-600 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/50">
                             <MethodIcon className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{row.method}</span>
+                            <span>{row.paymentMethod}</span>
                           </span>
                         </td>
                         <td className="py-4 px-4">
-                          {row.status === "Completed" ? (
+                          {row.status === "completed" ? (
                             <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               <span>Completed</span>
                             </span>
-                          ) : row.status === "Pending" ? (
+                          ) : row.status === "pending" ? (
                             <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
                               <Clock className="h-3.5 w-3.5" />
                               <span>Pending</span>
@@ -381,16 +568,7 @@ export default function TransactionsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-xl shadow-lg border border-slate-100">
                               <DropdownMenuItem
-                                onClick={() =>
-                                  handleOpenReceipt({
-                                    id: row.id,
-                                    customerOrRecipient: row.customer,
-                                    amount: row.amount,
-                                    method: row.method,
-                                    status: row.status,
-                                    date: row.date,
-                                  })
-                                }
+                                onClick={() => handleOpenReceipt(row)}
                                 className="flex items-center gap-2 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
                               >
                                 <FileText className="h-4 w-4 text-slate-400" />
@@ -418,70 +596,92 @@ export default function TransactionsPage() {
                 <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <th className="py-4 px-4">PAYOUT ID</th>
                   <th className="py-4 px-4">RECIPIENT</th>
-                  <th className="py-4 px-4">TYPE</th>
+                  <th className="py-4 px-4">ROLE</th>
                   <th className="py-4 px-4">AMOUNT</th>
-                  <th className="py-4 px-4">METHOD</th>
+                  <th className="py-4 px-4">ACCOUNT DETAILS</th>
                   <th className="py-4 px-4">STATUS</th>
                   <th className="py-4 px-4">DATE</th>
                   <th className="py-4 px-4 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(paginatedList as PayoutRecord[]).length > 0 ? (
-                  (paginatedList as PayoutRecord[]).map((row) => {
-                    const MethodIcon = getMethodIcon(row.method);
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-medium text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                        <span>Loading payout records...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : transactions.length > 0 ? (
+                  transactions.map((row) => {
+                    const isDriver = row.user.role === "driver";
 
                     return (
                       <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-4 px-4 text-xs font-semibold text-[#10B981]">
-                          {row.id}
-                        </td>
                         <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`size-9 rounded-full ${row.avatarBg} text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm`}
-                            >
-                              {row.initials}
-                            </div>
-                            <span className="text-xs md:text-sm font-bold text-slate-900">
-                              {row.recipient}
-                            </span>
+                          <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#10B981]">
+                            <span>#{row.transactionId}</span>
+                            <CopyButton text={row.transactionId} label="Payout ID" />
                           </div>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                            {row.recipientType === "Rider" ? (
+                          <div className="flex items-center gap-3">
+                            {row.user.avatar ? (
+                              <Image
+                                src={row.user.avatar}
+                                alt={row.user.name}
+                                width={36}
+                                height={36}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                                {(row.user.name || "D").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-xs md:text-sm font-bold text-slate-900 block leading-tight">
+                                {row.user.name}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                #{row.user.userId || row.user.id.slice(-6)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
+                            {isDriver ? (
                               <User className="h-3 w-3 text-slate-400" />
                             ) : (
                               <Building2 className="h-3 w-3 text-slate-400" />
                             )}
-                            <span>{row.recipientType}</span>
+                            <span>{row.user.role || "Driver"}</span>
                           </span>
                         </td>
                         <td className="py-4 px-4 text-xs md:text-sm font-bold text-slate-900">
-                          {row.amount}
+                          ${row.amount.toFixed(2)} XOF
+                        </td>
+                        <td className="py-4 px-4 text-xs font-medium text-slate-600 max-w-[180px] truncate">
+                          {row.accountDetails || "N/A"}
                         </td>
                         <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1.5 bg-slate-100/80 text-slate-600 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/50">
-                            <MethodIcon className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{row.method}</span>
-                          </span>
-                        </td>
-                        <td className="py-4 px-4">
-                          {row.status === "Completed" ? (
+                          {row.status === "completed" ? (
                             <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               <span>Completed</span>
                             </span>
-                          ) : row.status === "Processing" ? (
+                          ) : row.status === "pending" || row.status === "processing" ? (
                             <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
                               <Clock className="h-3.5 w-3.5" />
-                              <span>Processing</span>
+                              <span>Pending</span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-xs font-semibold px-3 py-1 rounded-full">
                               <XCircle className="h-3.5 w-3.5" />
-                              <span>Failed</span>
+                              <span>Rejected</span>
                             </span>
                           )}
                         </td>
@@ -493,24 +693,34 @@ export default function TransactionsPage() {
                             <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                               <MoreHorizontal className="h-5 w-5" />
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-xl shadow-lg border border-slate-100">
+                            <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
                               <DropdownMenuItem
-                                onClick={() =>
-                                  handleOpenReceipt({
-                                    id: row.id,
-                                    customerOrRecipient: row.recipient,
-                                    type: row.recipientType,
-                                    amount: row.amount,
-                                    method: row.method,
-                                    status: row.status,
-                                    date: row.date,
-                                  })
-                                }
+                                onClick={() => handleOpenReceipt(row)}
                                 className="flex items-center gap-2 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
                               >
                                 <FileText className="h-4 w-4 text-slate-400" />
                                 <span>View Receipt</span>
                               </DropdownMenuItem>
+
+                              {(row.status === "pending" || row.status === "processing") && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => handleApprovePayout(row.id)}
+                                    className="flex items-center gap-2 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
+                                  >
+                                    <Check className="h-4 w-4 text-[#10B981]" />
+                                    <span>Approve Payout</span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onClick={() => setRejectPayoutItem(row)}
+                                    className="flex items-center gap-2 text-xs font-semibold text-red-500 py-2 cursor-pointer"
+                                  >
+                                    <X className="h-4 w-4 text-red-500" />
+                                    <span>Reject Payout</span>
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -557,6 +767,16 @@ export default function TransactionsPage() {
           { label: activeTab === "transactions" ? "Pending" : "Processing", value: activeTab === "transactions" ? "Pending" : "Processing" },
           { label: "Failed", value: "Failed" },
         ]}
+      />
+
+      {/* Reject Payout Modal */}
+      <RejectReasonModal
+        isOpen={Boolean(rejectPayoutItem)}
+        onClose={() => setRejectPayoutItem(null)}
+        onConfirm={handleConfirmRejectPayout}
+        loading={isRejecting}
+        title="Reject Payout Request"
+        driverName={rejectPayoutItem?.user.name || "Driver"}
       />
     </div>
   );

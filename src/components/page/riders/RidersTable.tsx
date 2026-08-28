@@ -65,6 +65,34 @@ export default function RidersTable() {
   const [totalPages, setTotalPages] = useState(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
+  const [stats, setStats] = useState({
+    totalDrivers: 0,
+    activeDrivers: 0,
+    pendingRequests: 0,
+  });
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const [allRes, activeRes, pendingRes] = await Promise.all([
+        myFetch("/user?role=driver&limit=1"),
+        myFetch("/user?role=driver&driverInfo.profileVerification=approved&limit=1"),
+        myFetch("/user?role=driver&driverInfo.profileVerification=pending&limit=1"),
+      ]);
+
+      setStats({
+        totalDrivers: allRes?.data?.meta?.total || allRes?.data?.meta?.totalDoc || 0,
+        activeDrivers: activeRes?.data?.meta?.total || activeRes?.data?.meta?.totalDoc || 0,
+        pendingRequests: pendingRes?.data?.meta?.total || pendingRes?.data?.meta?.totalDoc || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching driver stats:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
   const fetchDrivers = useCallback(async () => {
     setLoading(true);
     const queryParams = new URLSearchParams();
@@ -162,6 +190,7 @@ export default function RidersTable() {
       if (res.success) {
         toast.success("Driver verification approved successfully!", { id: "approve-driver" });
         fetchDrivers();
+        fetchStats();
       } else {
         toast.error(res.message || res.error || "Failed to approve driver", {
           id: "approve-driver",
@@ -194,6 +223,7 @@ export default function RidersTable() {
         toast.success("Driver verification rejected successfully!", { id: "reject-driver" });
         setRejectDriverItem(null);
         fetchDrivers();
+        fetchStats();
       } else {
         toast.error(res.message || res.error || "Failed to reject driver", {
           id: "reject-driver",
@@ -216,6 +246,7 @@ export default function RidersTable() {
         toast.success("Driver removed successfully", { id: "remove-driver" });
         setDeleteDriverId(null);
         fetchDrivers();
+        fetchStats();
       } else {
         toast.error(res.message || res.error || "Failed to remove driver", {
           id: "remove-driver",
@@ -232,31 +263,29 @@ export default function RidersTable() {
 
   return (
     <div className="space-y-6">
-      {/* Top 3 Stat Cards (Visible in New Requests mode or Overview) */}
-      {activeTab === "requests" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              TOTAL VEHICLES
-            </span>
-            <h2 className="text-3xl font-black text-slate-900">142</h2>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              ACTIVE DRIVERS
-            </span>
-            <h2 className="text-3xl font-black text-slate-900">{activeRiders.length}</h2>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              PENDING REQUESTS
-            </span>
-            <h2 className="text-3xl font-black text-slate-900">{newRequests.length}</h2>
-          </div>
+      {/* Top 3 Stat Cards (Dynamic counts from backend) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            TOTAL DRIVERS
+          </span>
+          <h2 className="text-3xl font-black text-slate-900">{stats.totalDrivers}</h2>
         </div>
-      )}
+
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            ACTIVE DRIVERS
+          </span>
+          <h2 className="text-3xl font-black text-slate-900">{stats.activeDrivers}</h2>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            PENDING REQUESTS
+          </span>
+          <h2 className="text-3xl font-black text-slate-900">{stats.pendingRequests}</h2>
+        </div>
+      </div>
 
       {/* Top Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -275,56 +304,58 @@ export default function RidersTable() {
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
-              <span>{statusFilter}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem
-                onClick={() => { setStatusFilter("All"); setCurrentPage(1); }}
-                className="text-xs font-semibold cursor-pointer"
-              >
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => { setStatusFilter("Active"); setCurrentPage(1); }}
-                className="text-xs font-semibold cursor-pointer"
-              >
-                Active
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => { setStatusFilter("Suspended"); setCurrentPage(1); }}
-                className="text-xs font-semibold cursor-pointer"
-              >
-                Suspended
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => { setStatusFilter("Pending"); setCurrentPage(1); }}
-                className="text-xs font-semibold cursor-pointer"
-              >
-                Pending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => { setStatusFilter("Inactive"); setCurrentPage(1); }}
-                className="text-xs font-semibold cursor-pointer"
-              >
-                Inactive
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {activeTab === "active" && (
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            {/* Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="h-11 bg-white border border-slate-200 px-4 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+                <span>{statusFilter}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem
+                  onClick={() => { setStatusFilter("All"); setCurrentPage(1); }}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => { setStatusFilter("Active"); setCurrentPage(1); }}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Active
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => { setStatusFilter("Suspended"); setCurrentPage(1); }}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Suspended
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => { setStatusFilter("Pending"); setCurrentPage(1); }}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Pending
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => { setStatusFilter("Inactive"); setCurrentPage(1); }}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Inactive
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {/* Export Data Action Button */}
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="h-11 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export Data</span>
-          </button>
-        </div>
+            {/* Export Data Action Button */}
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="h-11 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export Data</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sub-Tabs Pill Controls */}
@@ -340,7 +371,7 @@ export default function RidersTable() {
               : "text-slate-500 hover:text-slate-900"
           }`}
         >
-          Active Riders ({activeRiders.length})
+          Active Riders ({stats.activeDrivers})
         </button>
 
         <button
@@ -354,8 +385,8 @@ export default function RidersTable() {
               : "text-slate-500 hover:text-slate-900"
           }`}
         >
-          <span>New Requests ({newRequests.length})</span>
-          {newRequests.length > 0 && (
+          <span>New Requests ({stats.pendingRequests})</span>
+          {stats.pendingRequests > 0 && (
             <span className="absolute top-1.5 right-2 size-2 bg-red-500 rounded-full" />
           )}
         </button>

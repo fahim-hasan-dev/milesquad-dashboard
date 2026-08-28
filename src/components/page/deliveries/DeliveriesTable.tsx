@@ -31,6 +31,7 @@ import ExportDataModal from "@/components/modals/ExportDataModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 import { getImageUrl } from "@/utils/imageUrl";
+import { BASE_URL } from "@/config/env-config";
 import CopyButton from "@/components/common/CopyButton";
 import Pagination from "@/components/common/Pagination";
 
@@ -154,9 +155,48 @@ export default function DeliveriesTable() {
     fetchDeliveries();
   };
 
+  const handleDownloadInvoice = async (parcelId: string, customBookingId?: string) => {
+    toast.loading("Generating invoice PDF...", { id: "download-invoice" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+      const response = await fetch(`${BASE_URL}/parcel/invoice/${parcelId}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.message || errData?.error || "Failed to download invoice");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${customBookingId || parcelId.slice(-6)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Invoice downloaded successfully!", { id: "download-invoice" });
+    } catch (err: any) {
+      console.error("Error downloading invoice:", err);
+      toast.error(err?.message || "Failed to download invoice", { id: "download-invoice" });
+    }
+  };
+
   const renderStatusBadge = (status: string) => {
-    const normalized = (status || "").toUpperCase();
-    if (normalized === "CREATED" || normalized === "PENDING") {
+    const raw = (status || "").toUpperCase();
+    const formatted = raw.replace(/_/g, " ");
+
+    if (raw === "CREATED" || raw === "PENDING") {
       return (
         <span className="inline-flex items-center gap-1.5 bg-[#E0F2FE] text-[#0284C7] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-sky-200/60">
           <Clock className="h-3 w-3" />
@@ -173,16 +213,16 @@ export default function DeliveriesTable() {
         "ON_THE_WAY_TO_DELIVERY",
         "ASSIGNED",
         "IN_PROGRESS",
-      ].includes(normalized)
+      ].includes(raw)
     ) {
       return (
         <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200/60">
           <Bike className="h-3 w-3" />
-          <span>ASSIGNED</span>
+          <span>{formatted}</span>
         </span>
       );
     }
-    if (normalized === "DELIVERED") {
+    if (raw === "DELIVERED") {
       return (
         <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
           <CheckCircle2 className="h-3 w-3" />
@@ -193,9 +233,65 @@ export default function DeliveriesTable() {
     return (
       <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-red-200/60">
         <XCircle className="h-3 w-3" />
-        <span>CANCELLED</span>
+        <span>{formatted || "CANCELLED"}</span>
       </span>
     );
+  };
+
+  const handleExportDeliveries = async (exportParams: {
+    startDate: string;
+    endDate: string;
+    filter: string;
+    format: string;
+  }) => {
+    toast.loading("Preparing deliveries export...", { id: "export-deliveries" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+
+      const isExcel =
+        exportParams.format?.toLowerCase().includes("excel") ||
+        exportParams.format?.toLowerCase().includes("xlsx");
+
+      const queryParams = new URLSearchParams();
+      if (exportParams.startDate) queryParams.set("startDate", exportParams.startDate);
+      if (exportParams.endDate) queryParams.set("endDate", exportParams.endDate);
+      if (exportParams.filter) queryParams.set("filter", exportParams.filter);
+      queryParams.set("format", isExcel ? "excel" : "csv");
+
+      const response = await fetch(`${BASE_URL}/parcel/export?${queryParams.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export deliveries data");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const fileExt = isExcel ? "xlsx" : "csv";
+      link.download = `Deliveries_Export_${new Date().toISOString().slice(0, 10)}.${fileExt}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(
+        `Deliveries data exported successfully as ${isExcel ? "Excel (.xlsx)" : "CSV"}!`,
+        { id: "export-deliveries" }
+      );
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error(err?.message || "Failed to export data", { id: "export-deliveries" });
+    }
   };
 
   return (
@@ -297,6 +393,7 @@ export default function DeliveriesTable() {
           { label: "Delivered", value: "DELIVERED" },
           { label: "Cancelled", value: "CANCELLED" },
         ]}
+        onDownload={handleExportDeliveries}
       />
 
       {/* Deliveries Table Card */}
@@ -404,6 +501,14 @@ export default function DeliveriesTable() {
                                 <Eye className="h-4 w-4 text-slate-500" />
                                 <span>View Details</span>
                               </Link>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadInvoice(row._id, displayId)}
+                              className="flex items-center gap-2.5 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
+                            >
+                              <Download className="h-4 w-4 text-[#10B981]" />
+                              <span>Download Invoice</span>
                             </DropdownMenuItem>
 
                             {isPending && (

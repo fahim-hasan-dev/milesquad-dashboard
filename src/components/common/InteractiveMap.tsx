@@ -53,6 +53,8 @@ export default function InteractiveMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const polylineRef = useRef<L.Polyline | null>(null);
+  const routeKeyRef = useRef<string>("");
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -87,15 +89,15 @@ export default function InteractiveMap({
       subdomains: ["mt0", "mt1", "mt2", "mt3"],
       attribution: attribution,
     }).addTo(map);
-
   }, [mapType]);
 
-  // Update center and markers dynamically
+  // Update center, markers, and route polyline dynamically
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    map.panTo(center, { animate: true, duration: 0.8 });
+    let isMounted = true;
+    const abortController = new AbortController();
 
     // Clear existing markers
     markersRef.current.forEach((m) => map.removeLayer(m));
@@ -137,6 +139,86 @@ export default function InteractiveMap({
 
       markersRef.current.push(marker);
     });
+
+    // Extract route waypoints: pickup -> driver (if available) -> dropoff
+    const pickupMarker = markers.find((m) => m.iconType === "pickup");
+    const driverMarker = markers.find((m) => m.iconType === "driver");
+    const dropoffMarker = markers.find((m) => m.iconType === "dropoff");
+
+    const routeCoords: [number, number][] = [];
+    if (pickupMarker) routeCoords.push([pickupMarker.lat, pickupMarker.lng]);
+    if (driverMarker) routeCoords.push([driverMarker.lat, driverMarker.lng]);
+    if (dropoffMarker) routeCoords.push([dropoffMarker.lat, dropoffMarker.lng]);
+
+    // Create unique key for current route setup to avoid zoom animation loops
+    const currentRouteKey = routeCoords.map((c) => `${c[0].toFixed(5)},${c[1].toFixed(5)}`).join("|");
+    const isNewRoute = routeKeyRef.current !== currentRouteKey;
+
+    if (routeCoords.length >= 2) {
+      const waypointsStr = routeCoords.map((c) => `${c[1]},${c[0]}`).join(";");
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
+
+      fetch(osrmUrl, { signal: abortController.signal })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+
+          let pathPoints: [number, number][] = routeCoords;
+          let isRoadRoute = false;
+
+          if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+            pathPoints = data.routes[0].geometry.coordinates.map(
+              (coord: [number, number]) => [coord[1], coord[0]]
+            );
+            isRoadRoute = true;
+          }
+
+          // Create or update polyline directly with road path (no straight line flash)
+          if (polylineRef.current) {
+            polylineRef.current.setLatLngs(pathPoints);
+          } else {
+            polylineRef.current = L.polyline(pathPoints, {
+              color: "#10B981",
+              weight: 5,
+              opacity: 0.9,
+              dashArray: isRoadRoute ? undefined : "8, 10",
+              lineCap: "round",
+              lineJoin: "round",
+            }).addTo(map);
+          }
+
+          // Fit bounds smoothly ONLY when route waypoints change
+          if (isNewRoute) {
+            routeKeyRef.current = currentRouteKey;
+            const routeBounds = L.latLngBounds(pathPoints);
+            map.fitBounds(routeBounds, { padding: [45, 45], maxZoom: 16, animate: false });
+          }
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            console.warn("OSRM routing fetch failed, fallback to polyline:", err);
+            if (!polylineRef.current) {
+              polylineRef.current = L.polyline(routeCoords, {
+                color: "#10B981",
+                weight: 4,
+                opacity: 0.8,
+                dashArray: "8, 10",
+              }).addTo(map);
+            }
+            if (isNewRoute) {
+              routeKeyRef.current = currentRouteKey;
+              map.fitBounds(L.latLngBounds(routeCoords), { padding: [45, 45], maxZoom: 16, animate: false });
+            }
+          }
+        });
+    } else {
+      map.panTo(center, { animate: false });
+    }
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, [center, markers]);
 
   useEffect(() => {

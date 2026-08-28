@@ -44,7 +44,7 @@ export default function ExportDataModal({
   const [selectedFilter, setSelectedFilter] = useState(
     filterOptions[0]?.value || "ALL"
   );
-  const [outputFormat, setOutputFormat] = useState("CSV (Spreadsheet)");
+  const [outputFormat, setOutputFormat] = useState("Excel (.xlsx)");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -58,7 +58,6 @@ export default function ExportDataModal({
       });
     }
 
-    toast.success(`Export initiated! Downloading ${outputFormat}...`);
     onClose();
   };
 
@@ -131,25 +130,6 @@ export default function ExportDataModal({
                     {opt.label}
                   </option>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Output Format Field */}
-          <div className="space-y-1.5 text-left">
-            <Label htmlFor="outputFormat" className="text-xs font-semibold text-slate-700">
-              Output Format
-            </Label>
-            <div className="relative">
-              <select
-                id="outputFormat"
-                value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value)}
-                className="w-full h-11 appearance-none rounded-xl bg-[#F8FAFC] border border-slate-200/80 px-4 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#10B981] shadow-none cursor-pointer pr-9"
-              >
-                <option value="CSV (Spreadsheet)">CSV (Spreadsheet)</option>
-                <option value="Excel (.xlsx)">Excel (.xlsx)</option>
               </select>
               <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             </div>

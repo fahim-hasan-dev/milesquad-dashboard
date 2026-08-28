@@ -18,6 +18,7 @@ import {
   Bike,
   Building2,
   Loader2,
+  Download,
 } from "lucide-react";
 import AssignDriverModal from "@/components/modals/AssignDriverModal";
 import AssignPartnerModal from "@/components/modals/AssignPartnerModal";
@@ -26,7 +27,7 @@ import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 import { getImageUrl } from "@/utils/imageUrl";
 import { getTrackingSocket } from "@/utils/socket";
-import { MAP_API_KEY } from "@/config/env-config";
+import { MAP_API_KEY, BASE_URL } from "@/config/env-config";
 import dynamic from "next/dynamic";
 
 const InteractiveMap = dynamic(
@@ -44,6 +45,34 @@ interface ParcelDetail {
   vehicleType?: string;
   distance?: number;
   duration?: number;
+  baseFee?: number;
+  fuelCost?: number;
+  timeCost?: number;
+  serviceFee?: number;
+  goodRisks?: number;
+  overhead?: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  isPaid?: boolean;
+  driverPricing?: {
+    baseFee?: number;
+    timeCost?: number;
+    fuelCost?: number;
+    totalPrice?: number;
+    additionalCost?: number;
+    totalRun?: number;
+  };
+  customerPricing?: {
+    totalOfRun?: number;
+    serviceFee?: number;
+    goodInsurance?: number;
+    totalToPay?: number;
+  };
+  adminPricing?: {
+    overhead?: number;
+    milesquadInsurance?: number;
+    marginMilesquad?: number;
+  };
   pickupLocation?: {
     address?: string;
     name?: string;
@@ -124,7 +153,15 @@ function OrderDetailsContent() {
   }, [fetchParcelDetails]);
 
   useEffect(() => {
-    if (!targetId) return;
+    if (!targetId || !parcel) return;
+
+    const normalizedStatus = parcel.status?.toUpperCase() || "";
+    const isTerminated = ["DELIVERED", "CANCELLED", "COMPLETED", "FAILED", "RETURNED"].includes(normalizedStatus);
+
+    if (isTerminated) {
+      setLiveDriverCoords(null);
+      return;
+    }
 
     const socket = getTrackingSocket();
     socket.emit("user:track-parcel", { parcelId: targetId });
@@ -142,7 +179,7 @@ function OrderDetailsContent() {
       socket.emit("user:untrack-parcel", { parcelId: targetId });
       socket.off("parcel:tracking-update", handleParcelUpdate);
     };
-  }, [targetId]);
+  }, [targetId, parcel]);
 
   if (loading) {
     return (
@@ -197,6 +234,44 @@ function OrderDetailsContent() {
       })
     : "";
 
+  const handleDownloadInvoice = async () => {
+    if (!parcel?._id) return;
+    toast.loading("Generating invoice PDF...", { id: "download-invoice" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+      const response = await fetch(`${BASE_URL}/parcel/invoice/${parcel._id}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.message || errData?.error || "Failed to download invoice");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${displayId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Invoice downloaded successfully!", { id: "download-invoice" });
+    } catch (err: any) {
+      console.error("Error downloading invoice:", err);
+      toast.error(err?.message || "Failed to download invoice", { id: "download-invoice" });
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Back Link */}
@@ -224,6 +299,14 @@ function OrderDetailsContent() {
 
         {/* Top Right Action Buttons (Conditional based on Status) */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleDownloadInvoice}
+            className="border border-[#10B981] text-[#10B981] hover:bg-[#E6F4EA] font-semibold text-xs md:text-sm px-4 py-2.5 rounded-xl transition-all shadow-none cursor-pointer flex items-center gap-2 bg-white"
+          >
+            <Download className="h-4 w-4" />
+            <span>Download Invoice</span>
+          </button>
+
           {isPending ? (
             <>
               <button
@@ -245,7 +328,7 @@ function OrderDetailsContent() {
           ) : (
             <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider border border-emerald-200">
               <CheckCircle2 className="h-4 w-4" />
-              <span>{parcel.status.toUpperCase()}</span>
+              <span>{(parcel.status || "").replace(/_/g, " ").toUpperCase()}</span>
             </span>
           )}
         </div>
@@ -312,7 +395,10 @@ function OrderDetailsContent() {
                     popupText: dropAddress,
                     iconType: "dropoff",
                   },
-                  ...(liveDriverCoords
+                  ...(liveDriverCoords &&
+                  !["DELIVERED", "CANCELLED", "COMPLETED", "FAILED", "RETURNED"].includes(
+                    parcel.status?.toUpperCase() || ""
+                  )
                     ? [
                         {
                           lat: liveDriverCoords.lat,
@@ -325,6 +411,24 @@ function OrderDetailsContent() {
                     : []),
                 ]}
               />
+
+              {/* Status Badge Overlay */}
+              <div className="absolute top-3 right-3 z-10 pointer-events-none">
+                {parcel.status?.toUpperCase() === "DELIVERED" ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-md">
+                    ✓ Parcel Delivered
+                  </span>
+                ) : parcel.status?.toUpperCase() === "CANCELLED" ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-rose-600 text-white shadow-md">
+                    ✕ Delivery Cancelled
+                  </span>
+                ) : liveDriverCoords ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-white/95 text-emerald-600 shadow-md border border-slate-200/80">
+                    <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                    Live Driver Location
+                  </span>
+                ) : null}
+              </div>
 
               {/* Map Pins Simulation Badge Overlay */}
               <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl shadow-md border border-slate-200/80 max-w-[90%] pointer-events-none">
@@ -423,19 +527,6 @@ function OrderDetailsContent() {
                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   ASSIGNED DRIVER
                 </span>
-                <button
-                  onClick={() => {
-                    if (liveDriverCoords?.lat && liveDriverCoords?.lng) {
-                      setIsTrackDriverModalOpen(true);
-                    } else {
-                      toast.error("Driver is currently offline. Live location unavailable.");
-                    }
-                  }}
-                  className="bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span>Live Track</span>
-                </button>
               </div>
 
               <div className="flex items-center gap-3.5">
@@ -536,19 +627,64 @@ function OrderDetailsContent() {
 
           {/* Price Breakdown Card */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              PRICE BREAKDOWN
-            </span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                PRICE BREAKDOWN
+              </span>
+              {parcel.paymentMethod && (
+                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                  {parcel.paymentMethod.replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                <span>Delivery Fee</span>
-                <span>${totalFee.toFixed(2)}</span>
-              </div>
+            <div className="space-y-2.5 text-xs font-medium">
+              {typeof parcel.baseFee === "number" && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Base Fee</span>
+                  <span className="font-semibold text-slate-900">${parcel.baseFee.toFixed(2)}</span>
+                </div>
+              )}
 
-              <div className="w-full border-t border-slate-100 pt-2 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900">Total Amount</span>
-                <span className="text-lg font-black text-[#10B981]">
+              {typeof parcel.fuelCost === "number" && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Fuel Cost</span>
+                  <span className="font-semibold text-slate-900">${parcel.fuelCost.toFixed(2)}</span>
+                </div>
+              )}
+
+              {typeof parcel.timeCost === "number" && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Time Cost</span>
+                  <span className="font-semibold text-slate-900">${parcel.timeCost.toFixed(2)}</span>
+                </div>
+              )}
+
+              {typeof parcel.serviceFee === "number" && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Service Fee</span>
+                  <span className="font-semibold text-slate-900">${parcel.serviceFee.toFixed(2)}</span>
+                </div>
+              )}
+
+              {typeof parcel.goodRisks === "number" && parcel.goodRisks > 0 && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Goods Risk</span>
+                  <span className="font-semibold text-slate-900">${parcel.goodRisks.toFixed(2)}</span>
+                </div>
+              )}
+
+              {typeof parcel.overhead === "number" && parcel.overhead > 0 && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Overhead</span>
+                  <span className="font-semibold text-slate-900">${parcel.overhead.toFixed(2)}</span>
+                </div>
+              )}
+
+              {/* Total To Pay */}
+              <div className="w-full border-t border-slate-200 pt-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900">Total To Pay</span>
+                <span className="text-xl font-black text-[#10B981]">
                   ${totalFee.toFixed(2)}
                 </span>
               </div>

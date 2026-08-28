@@ -458,7 +458,7 @@ function UserDetailsContent() {
                         </span>
                       ) : (
                         <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                          {row.status}
+                          {(row.status || "").replace(/_/g, " ")}
                         </span>
                       )}
                     </td>
