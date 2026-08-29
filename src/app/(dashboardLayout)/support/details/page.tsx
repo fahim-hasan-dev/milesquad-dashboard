@@ -1,15 +1,21 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
-import { ArrowLeft, Eye, CheckCircle2, Send } from "lucide-react";
+import { ArrowLeft, Eye, CheckCircle2, Send, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
 import {
   masterSupportTicketsList,
   SupportTicketRecord,
 } from "@/demoData/supportManagementData";
+
+export interface ExtendedSupportTicketRecord extends SupportTicketRecord {
+  rawId?: string;
+}
 
 function SupportDetailsContent() {
   const searchParams = useSearchParams();
@@ -18,34 +24,136 @@ function SupportDetailsContent() {
   const queryId = searchParams.get("id");
   const routeId = params ? (params.id as string) : null;
   const rawId = queryId || routeId || "SUP-001";
-  const formattedId = rawId.toUpperCase();
 
-  // Find ticket record dynamically
-  const matchedTicket = masterSupportTicketsList.find(
-    (t) => t.id.toUpperCase() === formattedId
-  );
+  const [ticket, setTicket] = useState<ExtendedSupportTicketRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [replyText, setReplyText] = useState("");
+  const [ticketStatus, setTicketStatus] = useState<"Pending" | "Solved">("Pending");
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const ticket: SupportTicketRecord = matchedTicket || masterSupportTicketsList[0];
+  const fetchTicketDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await myFetch(`/support/${rawId}`);
+      if (res.success && res.data) {
+        const item = res.data;
+        const user = item.user || {};
+        const formatted: ExtendedSupportTicketRecord = {
+          id: item.ticketId || item._id,
+          rawId: item._id,
+          userName: user.fullName || item.userName || "User",
+          userEmail: user.email || item.userEmail || "N/A",
+          userLocation: user.address || user.location || item.userLocation || "N/A",
+          userAvatar:
+            (user.image ? getImageUrl(user.image) : "") ||
+            item.userAvatar ||
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
+          title: item.title,
+          contact: user.phone || item.contact || "N/A",
+          status: item.status === "solved" ? "Solved" : "Pending",
+          date: item.createdAt
+            ? new Date(item.createdAt).toISOString().slice(0, 10)
+            : item.date || "N/A",
+          message: item.message,
+          reply: item.reply || "",
+          attachmentUrl: item.files?.[0] ? getImageUrl(item.files[0]) : item.attachmentUrl,
+          pdfAttachment: item.pdfAttachment,
+        };
 
-  const [replyText, setReplyText] = useState(
-    ticket.reply || "Our support team is reviewing your ticket and will update you shortly."
-  );
-  const [ticketStatus, setTicketStatus] = useState<"Pending" | "Solved">(
-    ticket.status
-  );
+        setTicket(formatted);
+        setReplyText(item.reply || "Our support team is reviewing your ticket and will update you shortly.");
+        setTicketStatus(item.status === "solved" ? "Solved" : "Pending");
+      } else {
+        const fallback = masterSupportTicketsList.find(
+          (t) => t.id.toUpperCase() === rawId.toUpperCase()
+        ) || masterSupportTicketsList[0];
+        setTicket(fallback);
+        setReplyText(fallback.reply || "Our support team is reviewing your ticket.");
+        setTicketStatus(fallback.status);
+      }
+    } catch (err) {
+      console.error("Error loading ticket details:", err);
+      const fallback = masterSupportTicketsList[0];
+      setTicket(fallback);
+      setReplyText(fallback.reply || "");
+      setTicketStatus(fallback.status);
+    } finally {
+      setLoading(false);
+    }
+  }, [rawId]);
 
-  const handleResolve = () => {
-    setTicketStatus("Solved");
-    toast.success(`Support ticket ${ticket.id} marked as Resolved!`);
+  useEffect(() => {
+    fetchTicketDetails();
+  }, [fetchTicketDetails]);
+
+  const handleResolve = async () => {
+    if (!ticket) return;
+    setActionLoading(true);
+    const targetId = ticket.rawId || ticket.id;
+    try {
+      const res = await myFetch(`/support/${targetId}/status`, {
+        method: "PATCH",
+        body: { status: "solved" },
+      });
+
+      if (res.success) {
+        setTicketStatus("Solved");
+        toast.success(`Support ticket ${ticket.id} marked as Resolved!`);
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (err: any) {
+      console.error("Status update error:", err);
+      toast.error("Failed to update status");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
+    if (!ticket) return;
     if (!replyText.trim()) {
       toast.error("Please enter a reply message");
       return;
     }
-    toast.success("Reply sent to customer!");
+    setActionLoading(true);
+    const targetId = ticket.rawId || ticket.id;
+    try {
+      const res = await myFetch(`/support/${targetId}/reply`, {
+        method: "PATCH",
+        body: { reply: replyText.trim(), status: "solved" },
+      });
+
+      if (res.success) {
+        setTicketStatus("Solved");
+        toast.success("Reply sent and ticket resolved!");
+      } else {
+        toast.error(res.message || "Failed to send reply");
+      }
+    } catch (err: any) {
+      console.error("Send reply error:", err);
+      toast.error("Failed to send reply");
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-slate-400 font-medium flex items-center justify-center gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-[#10B981]" />
+        <span>Loading support ticket details...</span>
+      </div>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className="p-12 text-center text-slate-400 font-medium">
+        Support ticket not found.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12">

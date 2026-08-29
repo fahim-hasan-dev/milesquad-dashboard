@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,10 +11,11 @@ import {
   MoreHorizontal,
   Eye,
   Trash2,
-  MapPin,
+  User,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,48 +26,121 @@ import {
 import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import Pagination from "@/components/common/Pagination";
+import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
 import {
   masterSupportTicketsList,
   SupportTicketRecord,
 } from "@/demoData/supportManagementData";
 
-const ITEMS_PER_PAGE = 10;
+export interface ExtendedSupportTicketRecord extends SupportTicketRecord {
+  rawId?: string;
+  userCode?: string;
+}
 
 export default function SupportTable() {
-  const [requests, setRequests] = useState<SupportTicketRecord[]>(masterSupportTicketsList);
+  const [requests, setRequests] = useState<ExtendedSupportTicketRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const handleRemove = (id: string) => {
-    setRequests((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Support ticket removed");
+  const fetchTickets = useCallback(async () => {
+    setLoading(true);
+    const queryParams = new URLSearchParams();
+    queryParams.set("page", currentPage.toString());
+    queryParams.set("limit", "10");
+    queryParams.set("sort", "-createdAt");
+
+    if (searchTerm.trim()) {
+      queryParams.set("searchTerm", searchTerm.trim());
+    }
+
+    if (statusFilter !== "All") {
+      queryParams.set("status", statusFilter.toLowerCase());
+    }
+
+    try {
+      const res = await myFetch(`/support?${queryParams.toString()}`);
+      if (res.success && res.data) {
+        const rawList = res.data.data || res.data.result || res.data || [];
+        const formatted: ExtendedSupportTicketRecord[] = rawList.map((item: any) => {
+          const user = item.user || {};
+          const avatarUrl = user.image
+            ? getImageUrl(user.image)
+            : item.userAvatar && !item.userAvatar.includes("unsplash")
+            ? item.userAvatar
+            : "";
+
+          return {
+            id: item.ticketId || item._id,
+            rawId: item._id,
+            userCode: user.userId || item.ticketId || (item._id ? `#${item._id.slice(-6).toUpperCase()}` : "N/A"),
+            userName: user.fullName || item.userName || "User",
+            userEmail: user.email || item.userEmail || "N/A",
+            userLocation: user.address || user.location || item.userLocation || "N/A",
+            userAvatar: avatarUrl,
+            title: item.title,
+            contact: user.phone || item.contact || "N/A",
+            status: item.status === "solved" ? "Solved" : "Pending",
+            date: item.createdAt
+              ? new Date(item.createdAt).toISOString().slice(0, 10)
+              : item.date || "N/A",
+            message: item.message,
+            reply: item.reply,
+            attachmentUrl: item.files?.[0] ? getImageUrl(item.files[0]) : item.attachmentUrl,
+            pdfAttachment: item.pdfAttachment,
+          };
+        });
+
+        setRequests(formatted);
+        if (res.data.meta) {
+          setTotalPages(res.data.meta.totalPage || 1);
+          setTotalItems(res.data.meta.total || 0);
+        }
+      } else {
+        const cleanedDemo = masterSupportTicketsList.map((d) => ({
+          ...d,
+          userCode: d.id,
+          userAvatar: d.userAvatar.includes("unsplash") ? "" : d.userAvatar,
+        }));
+        setRequests(cleanedDemo);
+      }
+    } catch (err) {
+      console.error("Failed to fetch support tickets:", err);
+      const cleanedDemo = masterSupportTicketsList.map((d) => ({
+        ...d,
+        userCode: d.id,
+        userAvatar: d.userAvatar.includes("unsplash") ? "" : d.userAvatar,
+      }));
+      setRequests(cleanedDemo);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  const handleRemove = async (id: string, rawId?: string) => {
+    const targetId = rawId || id;
+    try {
+      const res = await myFetch(`/support/${targetId}`, { method: "DELETE" });
+      if (res.success) {
+        setRequests((prev) => prev.filter((r) => r.id !== id && r.rawId !== rawId));
+        toast.success("Support ticket removed successfully");
+        fetchTickets();
+      } else {
+        toast.error(res.message || "Failed to remove ticket");
+      }
+    } catch (err: any) {
+      console.error("Remove ticket error:", err);
+      toast.error("Failed to remove ticket");
+    }
   };
-
-  const filteredRequests = requests.filter((r) => {
-    const matchesSearch =
-      r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.userLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "All" || r.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Calculate pagination (10 per page)
-  const totalItems = filteredRequests.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = filteredRequests.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
-  );
-
-
 
   return (
     <div className="space-y-6">
@@ -130,27 +204,41 @@ export default function SupportTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedRequests.length > 0 ? (
-                paginatedRequests.map((row) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
+                      <span>Loading support tickets...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : requests.length > 0 ? (
+                requests.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* USER */}
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={row.userAvatar}
-                          alt={row.userName}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                        />
+                        {row.userAvatar ? (
+                          <Image
+                            src={row.userAvatar}
+                            alt={row.userName}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 border border-slate-200/60">
+                            <User className="h-5 w-5" />
+                          </div>
+                        )}
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 leading-tight">
                             {row.userName}
                           </h4>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium">
-                            <MapPin className="h-3 w-3 text-slate-300" />
-                            <span>{row.userLocation}</span>
-                          </div>
+                          <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
+                            ID: {row.userCode || row.id}
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -191,14 +279,14 @@ export default function SupportTable() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
                           <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link href={`/support/details?id=${row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
+                            <Link href={`/support/details?id=${row.rawId || row.id}`} className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-2">
                               <Eye className="h-4 w-4 text-slate-500" />
                               <span>View Request</span>
                             </Link>
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleRemove(row.id)}
+                            onClick={() => handleRemove(row.id, row.rawId)}
                             className="flex items-center gap-2.5 text-xs font-semibold text-red-500 py-2 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -225,7 +313,7 @@ export default function SupportTable() {
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        totalItems={totalItems}
+        totalItems={totalItems || requests.length}
         onPageChange={setCurrentPage}
       />
     </div>

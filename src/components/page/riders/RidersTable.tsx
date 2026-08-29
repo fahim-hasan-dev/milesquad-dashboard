@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import { BASE_URL } from "@/config/env-config";
 import RejectReasonModal from "@/components/modals/RejectReasonModal";
 import DeleteModal from "@/components/modals/DeleteModal";
 import { myFetch } from "@/utils/myFetch";
@@ -76,7 +77,7 @@ export default function RidersTable() {
       const [allRes, activeRes, pendingRes] = await Promise.all([
         myFetch("/user?role=driver&limit=1"),
         myFetch("/user?role=driver&driverInfo.profileVerification=approved&limit=1"),
-        myFetch("/user?role=driver&driverInfo.profileVerification=pending&limit=1"),
+        myFetch("/user?role=driver&driverInfo.profileVerification=pending,resubmitted,rejected&limit=1"),
       ]);
 
       setStats({
@@ -107,7 +108,7 @@ export default function RidersTable() {
         queryParams.set("status", statusValue);
       }
     } else {
-      queryParams.set("driverInfo.profileVerification", "pending");
+      queryParams.set("driverInfo.profileVerification", "pending,resubmitted,rejected");
     }
 
     if (searchTerm.trim()) {
@@ -260,6 +261,53 @@ export default function RidersTable() {
   };
 
 
+
+  const handleExportRiders = async (exportParams: {
+    startDate: string;
+    endDate: string;
+    filter: string;
+  }) => {
+    toast.loading("Preparing riders export...", { id: "export-riders" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+
+      const queryParams = new URLSearchParams();
+      queryParams.set("role", "DRIVER");
+      if (exportParams.startDate) queryParams.set("startDate", exportParams.startDate);
+      if (exportParams.endDate) queryParams.set("endDate", exportParams.endDate);
+      if (exportParams.filter) queryParams.set("filter", exportParams.filter);
+
+      const response = await fetch(`${BASE_URL}/user/export?${queryParams.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export riders data");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Riders_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Riders data exported successfully!", { id: "export-riders" });
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error(err?.message || "Failed to export data", { id: "export-riders" });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -649,6 +697,7 @@ export default function RidersTable() {
           { label: "Suspended", value: "Suspended" },
           { label: "Pending", value: "Pending" },
         ]}
+        onDownload={handleExportRiders}
       />
       {/* Reject Reason Modal */}
       <RejectReasonModal

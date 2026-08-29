@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import { BASE_URL } from "@/config/env-config";
 import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
@@ -137,6 +138,53 @@ export default function UsersTable() {
 
 
 
+  const handleExportUsers = async (exportParams: {
+    startDate: string;
+    endDate: string;
+    filter: string;
+  }) => {
+    toast.loading("Preparing users export...", { id: "export-users" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+
+      const queryParams = new URLSearchParams();
+      queryParams.set("role", "CUSTOMER");
+      if (exportParams.startDate) queryParams.set("startDate", exportParams.startDate);
+      if (exportParams.endDate) queryParams.set("endDate", exportParams.endDate);
+      if (exportParams.filter) queryParams.set("filter", exportParams.filter);
+
+      const response = await fetch(`${BASE_URL}/user/export?${queryParams.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export users data");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Users_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Users data exported successfully!", { id: "export-users" });
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error(err?.message || "Failed to export data", { id: "export-users" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Search & Filter Bar */}
@@ -236,6 +284,7 @@ export default function UsersTable() {
           { label: "Pending", value: "Pending" },
           { label: "Inactive", value: "Inactive" },
         ]}
+        onDownload={handleExportUsers}
       />
 
       {/* Main Table Card Container */}

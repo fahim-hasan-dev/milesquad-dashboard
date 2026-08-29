@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ViewReceiptModal from "@/components/modals/ViewReceiptModal";
 import ExportDataModal from "@/components/modals/ExportDataModal";
+import { BASE_URL } from "@/config/env-config";
 import RejectReasonModal from "@/components/modals/RejectReasonModal";
 import Pagination from "@/components/common/Pagination";
 import CopyButton from "@/components/common/CopyButton";
@@ -297,6 +298,58 @@ export default function TransactionsPage() {
       date: t.date,
     });
     setIsReceiptModalOpen(true);
+  };
+
+  const handleExportTransactions = async (exportParams: {
+    startDate: string;
+    endDate: string;
+    filter: string;
+  }) => {
+    const isPayout = activeTab === "payouts";
+    const label = isPayout ? "payouts" : "transactions";
+    toast.loading(`Preparing ${label} export...`, { id: "export-transactions" });
+    try {
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("accessToken")) ||
+        (typeof document !== "undefined" &&
+          document.cookie.match(/(?:^|; )accessToken=([^;]*)/)?.[1]) ||
+        "";
+
+      const queryParams = new URLSearchParams();
+      queryParams.set("type", isPayout ? "PAYOUT" : "PAYMENT");
+      if (exportParams.startDate) queryParams.set("startDate", exportParams.startDate);
+      if (exportParams.endDate) queryParams.set("endDate", exportParams.endDate);
+      if (exportParams.filter) queryParams.set("filter", exportParams.filter);
+
+      const response = await fetch(`${BASE_URL}/transaction/export?${queryParams.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to export ${label} data`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const fileNamePrefix = isPayout ? "Payouts_Export" : "Transactions_Export";
+      link.download = `${fileNamePrefix}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`${isPayout ? "Payouts" : "Transactions"} data exported successfully!`, {
+        id: "export-transactions",
+      });
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error(err?.message || "Failed to export data", { id: "export-transactions" });
+    }
   };
 
   return (
@@ -767,6 +820,7 @@ export default function TransactionsPage() {
           { label: activeTab === "transactions" ? "Pending" : "Processing", value: activeTab === "transactions" ? "Pending" : "Processing" },
           { label: "Failed", value: "Failed" },
         ]}
+        onDownload={handleExportTransactions}
       />
 
       {/* Reject Payout Modal */}
