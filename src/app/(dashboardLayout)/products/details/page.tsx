@@ -122,6 +122,10 @@ function OrderDetailsContent() {
   const routeId = params ? (params.id as string) : null;
   const targetId = queryId || routeId;
 
+  const fromUrl = searchParams.get("from");
+  const backLinkHref = fromUrl || "/products";
+  const backLinkText = fromUrl && fromUrl.includes("/users/details") ? "Back to User Details" : "Back to Deliveries";
+
   const [parcel, setParcel] = useState<ParcelDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -194,11 +198,11 @@ function OrderDetailsContent() {
     return (
       <div className="space-y-6 pb-12">
         <Link
-          href="/products"
+          href={backLinkHref}
           className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Deliveries</span>
+          <span>{backLinkText}</span>
         </Link>
         <div className="bg-white rounded-3xl p-12 text-center text-slate-400 font-medium">
           Delivery request not found.
@@ -277,11 +281,11 @@ function OrderDetailsContent() {
       {/* Back Link */}
       <div>
         <Link
-          href="/products"
+          href={backLinkHref}
           className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Deliveries</span>
+          <span>{backLinkText}</span>
         </Link>
       </div>
 

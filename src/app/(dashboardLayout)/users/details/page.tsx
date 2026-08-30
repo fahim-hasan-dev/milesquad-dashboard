@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
@@ -21,13 +21,17 @@ import {
   Copy,
   Eye,
   Loader2,
+  Search,
+  Bike,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 import { getImageUrl } from "@/utils/imageUrl";
+import Pagination from "@/components/common/Pagination";
 
 interface UserOrderItem {
   sl: number;
+  rawId: string;
   bookingId: string;
   pickupLocation: string;
   deliveryLocation: string;
@@ -62,47 +66,23 @@ function UserDetailsContent() {
   const [user, setUser] = useState<UserDetailData | null>(null);
   const [userOrders, setUserOrders] = useState<UserOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
+  // Pagination & Search Filter State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
+
+  // 1. Fetch User Profile Info
   useEffect(() => {
     if (!targetId) return;
 
     const fetchUserDetails = async () => {
       setLoading(true);
       try {
-        const [userRes, parcelRes] = await Promise.all([
-          myFetch(`/user/${targetId}`),
-          myFetch(`/parcel?sender=${targetId}`),
-        ]);
-
-        let ordersList: UserOrderItem[] = [];
-        let computedTotalSpent = 0;
-
-        if (parcelRes.success && parcelRes.data) {
-          const rawParcels = parcelRes.data.parcels || [];
-          ordersList = rawParcels.map((p: any, idx: number) => {
-            const numPrice = Number(
-              p.pricingDetails?.customer?.totalToPay || p.totalToPay || p.totalDeliveryFee || p.price || 0
-            );
-            computedTotalSpent += numPrice;
-
-            return {
-              sl: idx + 1,
-              bookingId: p._id || `BKG-${idx + 1}`,
-              pickupLocation: p.pickupLocation?.address || "N/A",
-              deliveryLocation: p.dropLocation?.address || "N/A",
-              price: `$${numPrice.toFixed(2)}`,
-              bookingDate: p.createdAt
-                ? new Date(p.createdAt).toLocaleDateString("en-US", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })
-                : "N/A",
-              status: (p.status || "PENDING").toUpperCase(),
-            };
-          });
-        }
-        setUserOrders(ordersList);
+        const userRes = await myFetch(`/user/${targetId}`);
 
         if (userRes.success && userRes.data) {
           const u = userRes.data;
@@ -140,8 +120,8 @@ function UserDetailsContent() {
                 year: "numeric",
               })
               : "N/A",
-            totalOrders: ordersList.length,
-            totalSpent: `$${computedTotalSpent.toFixed(2)}`,
+            totalOrders: 0,
+            totalSpent: "$0.00",
           });
         } else {
           toast.error(userRes.message || "Failed to load user details");
@@ -156,6 +136,78 @@ function UserDetailsContent() {
 
     fetchUserDetails();
   }, [targetId]);
+
+  // 2. Fetch User Order History with Pagination (limit=10) & Search Filtering
+  const fetchUserOrders = useCallback(async () => {
+    if (!targetId) return;
+    setOrdersLoading(true);
+
+    let query = `/parcel/user-orders/${targetId}?page=${currentPage}&limit=10`;
+    if (searchTerm.trim()) {
+      query += `&searchTerm=${encodeURIComponent(searchTerm.trim())}`;
+    }
+    if (statusFilter !== "All") {
+      query += `&status=${encodeURIComponent(statusFilter)}`;
+    }
+
+    try {
+      const parcelRes = await myFetch(query);
+
+      if (parcelRes.success && parcelRes.data) {
+        const rawParcels = parcelRes.data.parcels || (Array.isArray(parcelRes.data) ? parcelRes.data : []);
+        const meta = parcelRes.data.meta;
+
+        const ordersList: UserOrderItem[] = rawParcels.map((p: any, idx: number) => {
+          const numPrice = Number(
+            p.totalToPay || p.totalPrice || p.pricingDetails?.customer?.totalToPay || p.totalDeliveryFee || p.price || p.itemValue || 0
+          );
+
+          return {
+            sl: (currentPage - 1) * 10 + idx + 1,
+            rawId: p._id || p.id,
+            bookingId: p.parcelId || p._id || `BKG-${idx + 1}`,
+            pickupLocation: p.pickupLocation?.address || "N/A",
+            deliveryLocation: p.dropLocation?.address || "N/A",
+            price: `$${numPrice.toFixed(2)}`,
+            bookingDate: p.createdAt
+              ? new Date(p.createdAt).toLocaleDateString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+              : "N/A",
+            status: (p.status || "PENDING").toUpperCase(),
+          };
+        });
+
+        setUserOrders(ordersList);
+
+        const totalCount = meta?.total !== undefined ? meta.total : (parcelRes.data.totalOrders !== undefined ? parcelRes.data.totalOrders : ordersList.length);
+        const totalSpentAmount = parcelRes.data.totalSpent !== undefined ? parcelRes.data.totalSpent : 0;
+
+        setTotalOrdersCount(totalCount);
+        setTotalPages(meta?.totalPage || Math.ceil(totalCount / 10) || 1);
+
+        setUser((prev) =>
+          prev
+            ? {
+              ...prev,
+              totalOrders: totalCount,
+              totalSpent: `$${totalSpentAmount.toFixed(2)}`,
+            }
+            : prev
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching user orders:", err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [targetId, currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchUserOrders();
+  }, [fetchUserOrders]);
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -189,6 +241,52 @@ function UserDetailsContent() {
           </span>
         );
     }
+  };
+
+  const renderOrderStatusBadge = (status: string) => {
+    const raw = (status || "").toUpperCase();
+    const formatted = raw.replace(/_/g, " ");
+
+    if (raw === "CREATED" || raw === "PENDING" || raw === "CONFIRMED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-[#E0F2FE] text-[#0284C7] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-sky-200/60">
+          <Clock className="h-3 w-3" />
+          <span>PENDING</span>
+        </span>
+      );
+    }
+    if (
+      [
+        "RIDER_ASSIGNED",
+        "PARTNER_ASSIGNED",
+        "ON_THE_WAY_TO_PICKUP",
+        "PICKED_UP",
+        "ON_THE_WAY_TO_DELIVERY",
+        "ASSIGNED",
+        "IN_PROGRESS",
+      ].includes(raw)
+    ) {
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200/60">
+          <Bike className="h-3 w-3" />
+          <span>{formatted}</span>
+        </span>
+      );
+    }
+    if (raw === "DELIVERED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
+          <CheckCircle2 className="h-3 w-3" />
+          <span>DELIVERED</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-red-200/60">
+        <XCircle className="h-3 w-3" />
+        <span>{formatted || "CANCELLED"}</span>
+      </span>
+    );
   };
 
   if (loading) {
@@ -318,13 +416,19 @@ function UserDetailsContent() {
 
           {/* Profile Picture Row */}
           <div className="flex items-center gap-4">
-            <Image
-              src={user.avatar}
-              alt="Profile Picture"
-              width={64}
-              height={64}
-              className="w-16 h-16 rounded-full object-cover border border-slate-100 shadow-sm"
-            />
+            {user.avatar ? (
+              <Image
+                src={user.avatar}
+                alt="Profile Picture"
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full object-cover border border-slate-100 shadow-sm"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-[#10B981] text-white font-extrabold flex items-center justify-center text-xl shadow-sm border border-slate-100 shrink-0">
+                {(user.name || "U").charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <h4 className="text-sm md:text-base font-bold text-[#18181B]">
                 Profile Picture
@@ -390,7 +494,7 @@ function UserDetailsContent() {
 
       {/* User Orders Section */}
       <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-100 shadow-sm space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-lg md:text-xl font-bold text-[#18181B]">
               User Order History
@@ -399,14 +503,61 @@ function UserDetailsContent() {
               List of all delivery bookings placed by {user.name}
             </p>
           </div>
-          <span className="bg-emerald-50 text-[#10B981] border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
-            {user.totalOrders || 0} Orders Total
-          </span>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search ID or location..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10B981] w-48 sm:w-60 bg-slate-50/50"
+              />
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10B981] bg-slate-50/50 text-slate-700 font-semibold cursor-pointer outline-none"
+            >
+              <option value="All">All Statuses</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="ON_THE_WAY_TO_DELIVERY">In Transit</option>
+              <option value="PENDING">Pending</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+
+            <span className="bg-emerald-50 text-[#10B981] border border-emerald-200 text-xs font-bold px-3.5 py-2 rounded-xl whitespace-nowrap">
+              {totalOrdersCount || user.totalOrders || 0} Orders Total
+            </span>
+          </div>
         </div>
 
-        {/* Orders Table */}
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-xs font-medium text-slate-600 border-collapse">
+        {/* Orders Table Container with Dynamic Height */}
+        <div className={`w-full overflow-x-auto relative ${userOrders.length > 0 ? "min-h-[480px]" : "min-h-0"}`}>
+          {/* Smooth Subtle Loading Overlay when Switching Pages */}
+          {ordersLoading && userOrders.length > 0 && (
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] z-10 flex items-center justify-center transition-all duration-200 rounded-xl">
+              <div className="flex items-center gap-2.5 bg-white px-4 py-2.5 rounded-full shadow-lg border border-slate-100 text-slate-700 font-semibold text-xs">
+                <Loader2 className="h-4 w-4 animate-spin text-[#10B981]" />
+                <span>Updating orders...</span>
+              </div>
+            </div>
+          )}
+
+          <table
+            className={`w-full text-left text-xs font-medium text-slate-600 border-collapse transition-opacity duration-200 ${ordersLoading && userOrders.length > 0 ? "opacity-50 pointer-events-none" : "opacity-100"
+              }`}
+          >
             <thead>
               <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3 px-3">SL</th>
@@ -420,9 +571,22 @@ function UserDetailsContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {userOrders.length > 0 ? (
+              {ordersLoading && userOrders.length === 0 ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse h-14 border-b border-slate-100">
+                    <td className="py-4 px-3"><div className="h-4 w-4 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3"><div className="h-4 w-28 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3"><div className="h-4 w-36 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3"><div className="h-4 w-36 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3"><div className="h-4 w-16 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3"><div className="h-4 w-20 bg-slate-100 rounded" /></td>
+                    <td className="py-4 px-3 text-center"><div className="h-5 w-20 bg-slate-100 rounded-full mx-auto" /></td>
+                    <td className="py-4 px-3 text-right"><div className="h-6 w-6 bg-slate-100 rounded ml-auto" /></td>
+                  </tr>
+                ))
+              ) : userOrders.length > 0 ? (
                 userOrders.map((row) => (
-                  <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors h-14">
                     <td className="py-4 px-3 text-slate-500">{row.sl}</td>
                     <td className="py-4 px-3 font-semibold text-slate-900">
                       <div className="flex items-center gap-1.5">
@@ -444,27 +608,11 @@ function UserDetailsContent() {
                     <td className="py-4 px-3 font-bold text-blue-600">{row.price}</td>
                     <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
                     <td className="py-4 px-3 text-center">
-                      {row.status === "DELIVERED" ? (
-                        <span className="inline-block border border-emerald-300 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                          DELIVERED
-                        </span>
-                      ) : row.status === "ON_THE_WAY_TO_DELIVERY" || row.status === "ON_THE_WAY_TO_PICKUP" || row.status === "PICKED_UP" ? (
-                        <span className="inline-block border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                          IN TRANSIT
-                        </span>
-                      ) : row.status === "CANCELLED" ? (
-                        <span className="inline-block border border-red-300 bg-red-50 text-red-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                          CANCELLED
-                        </span>
-                      ) : (
-                        <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-                          {(row.status || "").replace(/_/g, " ")}
-                        </span>
-                      )}
+                      {renderOrderStatusBadge(row.status)}
                     </td>
                     <td className="py-4 px-3 text-right">
                       <Link
-                        href={`/orders/details?id=${row.bookingId}`}
+                        href={`/products/details?id=${row.rawId || row.bookingId}&from=${encodeURIComponent(`/users/details?id=${targetId}`)}`}
                         className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                         title="View Order Details"
                       >
@@ -474,8 +622,8 @@ function UserDetailsContent() {
                   </tr>
                 ))
               ) : (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400 font-medium text-sm">
+                <tr className="h-32">
+                  <td colSpan={8} className="py-8 text-center text-slate-400 font-medium text-sm">
                     No delivery bookings found for this customer.
                   </td>
                 </tr>
@@ -483,6 +631,15 @@ function UserDetailsContent() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={totalOrdersCount}
+          itemsPerPage={10}
+        />
       </div>
     </div>
   );

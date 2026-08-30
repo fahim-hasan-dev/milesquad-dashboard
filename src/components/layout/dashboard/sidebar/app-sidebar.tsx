@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { NavMain } from "@/components/layout/dashboard/sidebar/nav-main";
 import {
   Sidebar,
@@ -38,7 +38,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       {/* Navigation Groups */}
       <SidebarContent className="px-2 no-scrollbar">
-        <NavMain groups={sidebarMenuGroups} />
+        <Suspense fallback={null}>
+          <NavMain groups={sidebarMenuGroups} />
+        </Suspense>
       </SidebarContent>
 
       {/* Logout Footer Button */}

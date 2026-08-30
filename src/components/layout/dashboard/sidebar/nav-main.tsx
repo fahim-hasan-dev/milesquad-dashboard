@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 export interface NavGroup {
@@ -23,6 +23,9 @@ export interface NavGroup {
 
 export function NavMain({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const fromUrl = searchParams ? searchParams.get("from") : null;
+
   const { user } = useAuthContext();
 
   const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as { role?: string };
@@ -52,10 +55,15 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
           </SidebarGroupLabel>
           <SidebarMenu className="gap-1">
             {group.items.map((item) => {
-              const isActive =
-                item.url === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.url);
+              let isActive = false;
+              if (fromUrl && fromUrl !== "/") {
+                isActive = item.url !== "/" && fromUrl.startsWith(item.url);
+              } else {
+                isActive =
+                  item.url === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.url);
+              }
 
               return (
                 <SidebarMenuItem key={item.title}>
