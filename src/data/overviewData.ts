@@ -39,14 +39,14 @@ export interface OverviewDataset {
 }
 
 const sampleRecentOrders: OrderItem[] = [
-  { sl: 1, bookingId: "FM-BKG-000050", customerName: "Donald Trump", providerContact: "+27 791 135 003", price: "$3,600", operationalFee: "$360", platformFee: "$180", bookingDate: "11 Jun 2026", status: "DELIVERED" },
-  { sl: 2, bookingId: "FM-BKG-000049", customerName: "Sarah Connor", providerContact: "+27 656 648 349", price: "$1,250", operationalFee: "$125", platformFee: "$62.50", bookingDate: "08 Jun 2026", status: "IN TRANSIT" },
-  { sl: 3, bookingId: "FM-BKG-000048", customerName: "Marcus Wei", providerContact: "+27 824 551 902", price: "$850", operationalFee: "$85", platformFee: "$42.50", bookingDate: "04 Jun 2026", status: "PENDING" },
-  { sl: 4, bookingId: "FM-BKG-000047", customerName: "Emma Watson", providerContact: "+27 712 990 411", price: "$2,100", operationalFee: "$210", platformFee: "$105", bookingDate: "28 May 2026", status: "DELIVERED" },
-  { sl: 5, bookingId: "FM-BKG-000046", customerName: "David Kim", providerContact: "+27 839 201 114", price: "$1,750", operationalFee: "$175", platformFee: "$87.50", bookingDate: "25 May 2026", status: "CANCELLED" },
-  { sl: 6, bookingId: "FM-BKG-000045", customerName: "Jessica Alba", providerContact: "+27 721 883 490", price: "$2,850", operationalFee: "$285", platformFee: "$142.50", bookingDate: "20 May 2026", status: "IN TRANSIT" },
-  { sl: 7, bookingId: "FM-BKG-000044", customerName: "Michael Scott", providerContact: "+27 614 332 990", price: "$1,900", operationalFee: "$190", platformFee: "$95", bookingDate: "15 May 2026", status: "DELIVERED" },
-  { sl: 8, bookingId: "FM-BKG-000043", customerName: "Priya Patel", providerContact: "+27 799 441 203", price: "$3,100", operationalFee: "$310", platformFee: "$155", bookingDate: "10 May 2026", status: "PENDING" },
+  { sl: 1, bookingId: "FM-BKG-000050", customerName: "Donald Trump", providerContact: "+27 791 135 003", price: "3,600 XOF", operationalFee: "360 XOF", platformFee: "180 XOF", bookingDate: "11 Jun 2026", status: "DELIVERED" },
+  { sl: 2, bookingId: "FM-BKG-000049", customerName: "Sarah Connor", providerContact: "+27 656 648 349", price: "1,250 XOF", operationalFee: "125 XOF", platformFee: "62.50 XOF", bookingDate: "08 Jun 2026", status: "IN TRANSIT" },
+  { sl: 3, bookingId: "FM-BKG-000048", customerName: "Marcus Wei", providerContact: "+27 824 551 902", price: "850 XOF", operationalFee: "85 XOF", platformFee: "42.50 XOF", bookingDate: "04 Jun 2026", status: "PENDING" },
+  { sl: 4, bookingId: "FM-BKG-000047", customerName: "Emma Watson", providerContact: "+27 712 990 411", price: "2,100 XOF", operationalFee: "210 XOF", platformFee: "105 XOF", bookingDate: "28 May 2026", status: "DELIVERED" },
+  { sl: 5, bookingId: "FM-BKG-000046", customerName: "David Kim", providerContact: "+27 839 201 114", price: "1,750 XOF", operationalFee: "175 XOF", platformFee: "87.50 XOF", bookingDate: "25 May 2026", status: "CANCELLED" },
+  { sl: 6, bookingId: "FM-BKG-000045", customerName: "Jessica Alba", providerContact: "+27 721 883 490", price: "2,850 XOF", operationalFee: "285 XOF", platformFee: "142.50 XOF", bookingDate: "20 May 2026", status: "IN TRANSIT" },
+  { sl: 7, bookingId: "FM-BKG-000044", customerName: "Michael Scott", providerContact: "+27 614 332 990", price: "1,900 XOF", operationalFee: "190 XOF", platformFee: "95 XOF", bookingDate: "15 May 2026", status: "DELIVERED" },
+  { sl: 8, bookingId: "FM-BKG-000043", customerName: "Priya Patel", providerContact: "+27 799 441 203", price: "3,100 XOF", operationalFee: "310 XOF", platformFee: "155 XOF", bookingDate: "10 May 2026", status: "PENDING" },
 ];
 
 export const overviewDataByYearAndPeriod: Record<string, Record<string, OverviewDataset>> = {

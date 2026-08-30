@@ -47,36 +47,43 @@ export default function DeliveriesOverviewChart({
                   startAngle={90}
                   endAngle={-270}
                 >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+                  {data.map((entry, index) => {
+                  const defaultColors = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B"];
+                  const color = entry.fill || (entry as any).color || defaultColors[index % defaultColors.length];
+                  return <Cell key={`cell-${index}`} fill={color} />;
+                })}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartContainer>
 
-          {/* Center Label */}
-          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center text-center">
-            <span className="text-base font-black text-slate-900 leading-tight">
-              {total.toLocaleString()}
-            </span>
-            <span className="text-[11px] font-medium text-slate-400">Total</span>
-          </div>
+        {/* Center Label */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center text-center">
+          <span className="text-base font-black text-slate-900 leading-tight">
+            {total.toLocaleString()}
+          </span>
+          <span className="text-[11px] font-medium text-slate-400">Total</span>
         </div>
+      </div>
 
         {/* Legend */}
         <div className="space-y-3">
-          {data.map((item) => (
-            <div key={item.name} className="flex items-center gap-3">
-              <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
-              <div>
-                <span className="block text-xs font-bold text-slate-800">{item.name}</span>
-                <span className="block text-[11px] font-medium text-slate-400">
-                  {item.value.toLocaleString()} ({item.percentage})
-                </span>
+          {data.map((item, idx) => {
+            const defaultColors = ["#10B981", "#0284C7", "#F59E0B", "#EF4444"];
+            const itemColor = item.fill || (item as any).color || defaultColors[idx % defaultColors.length];
+            const pct = item.percentage || (total > 0 ? `${((item.value / total) * 100).toFixed(1)}%` : "0%");
+            return (
+              <div key={item.name} className="flex items-center gap-3">
+                <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: itemColor }} />
+                <div>
+                  <span className="block text-xs font-bold text-slate-800">{item.name}</span>
+                  <span className="block text-[11px] font-medium text-slate-400">
+                    {item.value.toLocaleString()} ({pct})
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

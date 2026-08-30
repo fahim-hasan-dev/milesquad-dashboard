@@ -91,7 +91,7 @@ export const masterDeliveriesList: DeliveryRecord[] = [
     driverName: "Sumon Mia",
     driverAvatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=300",
     driverRating: 4.8,
-    driverVehicle: "Truck",
+    driverVehicle: "Small Cargo",
   },
   {
     id: "#ORD-29485",
@@ -209,7 +209,7 @@ export const masterDeliveriesList: DeliveryRecord[] = [
     driverName: "Carlos Mendez",
     driverAvatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=300",
     driverRating: 4.8,
-    driverVehicle: "Truck",
+    driverVehicle: "Small Cargo",
   },
   {
     id: "#ORD-29491",
@@ -268,7 +268,7 @@ export const masterDeliveriesList: DeliveryRecord[] = [
     driverName: "Sumon Mia",
     driverAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300",
     driverRating: 4.8,
-    driverVehicle: "Truck",
+    driverVehicle: "Small Cargo",
   },
   {
     id: "#ORD-29494",

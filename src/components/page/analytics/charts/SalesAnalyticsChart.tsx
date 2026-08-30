@@ -1,7 +1,7 @@
 "use client";
 
 import { TrendingUp } from "lucide-react";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   Select,
@@ -80,7 +80,7 @@ export default function SalesAnalyticsChart({
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(val) =>
-                  val === 0 ? "$0k" : `$${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`
+                  val === 0 ? "0" : `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`
                 }
                 width={48}
                 className="text-[11px] font-semibold text-slate-400"
@@ -97,9 +97,21 @@ export default function SalesAnalyticsChart({
               />
               <Bar
                 dataKey="revenue"
+                fill="#10B981"
                 radius={[12, 12, 12, 12]}
                 maxBarSize={48}
-              />
+              >
+                {chartData.map((entry, index) => {
+                  const maxRev = Math.max(...chartData.map((d) => d.revenue || 0));
+                  const isMax = entry.revenue === maxRev && maxRev > 0;
+                  return (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.fill || (isMax ? "#10B981" : "#E2E8F0")}
+                    />
+                  );
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>

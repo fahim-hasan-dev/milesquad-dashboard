@@ -24,7 +24,11 @@ interface LiveDriverInfo {
   bg: string;
 }
 
-export default function LiveTrackingMap() {
+interface LiveTrackingMapProps {
+  heightClass?: string;
+}
+
+export default function LiveTrackingMap({ heightClass = "h-[620px]" }: LiveTrackingMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -301,7 +305,7 @@ export default function LiveTrackingMap() {
       </div>
 
       {/* Main Map Canvas */}
-      <div className="relative w-full h-[620px] rounded-3xl overflow-hidden border border-slate-200/80 shadow-md bg-slate-100">
+      <div className={`relative w-full ${heightClass} rounded-3xl overflow-hidden border border-slate-200/80 shadow-md bg-slate-100`}>
         <div ref={mapRef} className="w-full h-full z-0" />
 
         {/* Empty State Overlay if No Drivers Online */}

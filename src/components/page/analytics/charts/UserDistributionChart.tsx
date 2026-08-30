@@ -57,9 +57,10 @@ export default function UserDistributionChart({
                 startAngle={90}
                 endAngle={-270}
               >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
+                {data.map((entry, index) => {
+                  const color = entry.fill || (entry as any).color || (index === 0 ? "#10B981" : "#E2E8F0");
+                  return <Cell key={`cell-${index}`} fill={color} />;
+                })}
               </Pie>
             </PieChart>
           </ResponsiveContainer>

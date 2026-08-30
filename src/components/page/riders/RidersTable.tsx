@@ -131,7 +131,12 @@ export default function RidersTable() {
             contact: d.phone || "N/A",
             location: d.location || d.address || "N/A",
             role: "Driver",
-            vehicle: d.driverInfo?.vehicleType || d.vehicleType || "N/A",
+            vehicle: (() => {
+              const rawV = d.driverInfo?.vehicleType || d.vehicleType;
+              if (!rawV) return "N/A";
+              if (rawV.toLowerCase() === "small_cargo") return "Small Cargo";
+              return rawV.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            })(),
             verification: verificationStatus,
             status:
               rawStatus === "active"

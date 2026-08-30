@@ -168,7 +168,7 @@ function UserDetailsContent() {
             bookingId: p.parcelId || p._id || `BKG-${idx + 1}`,
             pickupLocation: p.pickupLocation?.address || "N/A",
             deliveryLocation: p.dropLocation?.address || "N/A",
-            price: `$${numPrice.toFixed(2)}`,
+            price: `${numPrice.toFixed(2)} XOF`,
             bookingDate: p.createdAt
               ? new Date(p.createdAt).toLocaleDateString("en-US", {
                 day: "2-digit",
@@ -193,7 +193,7 @@ function UserDetailsContent() {
             ? {
               ...prev,
               totalOrders: totalCount,
-              totalSpent: `$${totalSpentAmount.toFixed(2)}`,
+              totalSpent: `${totalSpentAmount.toFixed(2)} XOF`,
             }
             : prev
         );
@@ -485,7 +485,7 @@ function UserDetailsContent() {
               <DollarSign className="h-4 w-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-6 text-sm">
                 <span className="w-32 md:w-44 font-medium text-slate-500">Total Volume</span>
-                <span className="font-bold text-[#10B981]">{user.totalSpent || "$0.00"}</span>
+                <span className="font-bold text-[#10B981]">{user.totalSpent || "0 XOF"}</span>
               </div>
             </div>
           </div>

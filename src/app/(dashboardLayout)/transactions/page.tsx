@@ -292,7 +292,7 @@ export default function TransactionsPage() {
       id: t.transactionId,
       customerOrRecipient: t.user.name,
       type: t.user.role === "driver" ? "Rider" : "Customer",
-      amount: `$${t.amount.toFixed(2)} XOF`,
+      amount: `${t.amount.toFixed(2)} XOF`,
       method: t.paymentMethod,
       status: t.status === "completed" ? "Completed" : t.status === "pending" ? "Pending" : "Failed",
       date: t.date,
@@ -414,8 +414,8 @@ export default function TransactionsPage() {
             </span>
             <h2 className="text-2xl md:text-3xl font-black text-slate-900">
               {activeTab === "transactions"
-                ? `$${stats.totalRevenue.toLocaleString()} XOF`
-                : `$${stats.totalDisbursed.toLocaleString()} XOF`}
+                ? `${stats.totalRevenue.toLocaleString()} XOF`
+                : `${stats.totalDisbursed.toLocaleString()} XOF`}
             </h2>
             <span className="text-xs text-slate-400 font-medium block">
               {activeTab === "transactions" ? "Completed transactions" : "Completed payouts"}

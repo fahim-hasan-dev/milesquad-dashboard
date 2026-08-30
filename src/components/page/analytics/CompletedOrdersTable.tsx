@@ -1,66 +1,119 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Copy, ArrowRight, Eye } from "lucide-react";
-import toast from "react-hot-toast";
-import { OrderItem } from "@/data/overviewData";
+import { ArrowRight, Eye, Clock, Bike, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { myFetch } from "@/utils/myFetch";
+import { getImageUrl } from "@/utils/imageUrl";
+import CopyButton from "@/components/common/CopyButton";
 
-const defaultOrders: OrderItem[] = [
-  { sl: 1, bookingId: "FM-BKG-000050", customerName: "Donald Trump", providerContact: "+27 791 135 003", price: "$3,600", operationalFee: "$360", platformFee: "$180", bookingDate: "11 Jun 2026", status: "DELIVERED" },
-  { sl: 2, bookingId: "FM-BKG-000049", customerName: "Sarah Connor", providerContact: "+27 656 648 349", price: "$1,250", operationalFee: "$125", platformFee: "$62.50", bookingDate: "08 Jun 2026", status: "IN TRANSIT" },
-  { sl: 3, bookingId: "FM-BKG-000048", customerName: "Marcus Wei", providerContact: "+27 824 551 902", price: "$850", operationalFee: "$85", platformFee: "$42.50", bookingDate: "04 Jun 2026", status: "PENDING" },
-  { sl: 4, bookingId: "FM-BKG-000047", customerName: "Emma Watson", providerContact: "+27 712 990 411", price: "$2,100", operationalFee: "$210", platformFee: "$105", bookingDate: "28 May 2026", status: "DELIVERED" },
-  { sl: 5, bookingId: "FM-BKG-000046", customerName: "David Kim", providerContact: "+27 839 201 114", price: "$1,750", operationalFee: "$175", platformFee: "$87.50", bookingDate: "25 May 2026", status: "CANCELLED" },
-  { sl: 6, bookingId: "FM-BKG-000045", customerName: "Jessica Alba", providerContact: "+27 721 883 490", price: "$2,850", operationalFee: "$285", platformFee: "$142.50", bookingDate: "20 May 2026", status: "IN TRANSIT" },
-  { sl: 7, bookingId: "FM-BKG-000044", customerName: "Michael Scott", providerContact: "+27 614 332 990", price: "$1,900", operationalFee: "$190", platformFee: "$95", bookingDate: "15 May 2026", status: "DELIVERED" },
-  { sl: 8, bookingId: "FM-BKG-000043", customerName: "Priya Patel", providerContact: "+27 799 441 203", price: "$3,100", operationalFee: "$310", platformFee: "$155", bookingDate: "10 May 2026", status: "PENDING" },
-];
-
-interface CompletedOrdersTableProps {
-  orders?: OrderItem[];
+interface ParcelItem {
+  _id: string;
+  parcelId?: string;
+  goodType?: string;
+  status: string;
+  totalDeliveryFee?: number;
+  totalToPay?: number;
+  pickupLocation?: {
+    address?: string;
+    name?: string;
+  };
+  dropLocation?: {
+    address?: string;
+    name?: string;
+  };
+  receiverPhone?: string;
+  sender?: {
+    _id?: string;
+    userId?: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    image?: string;
+  };
+  driver?: {
+    _id?: string;
+    userId?: string;
+    fullName?: string;
+    phone?: string;
+  };
+  createdAt?: string;
 }
 
-export default function CompletedOrdersTable({ orders = defaultOrders }: CompletedOrdersTableProps) {
-  const displayOrders = orders && orders.length >= 8 ? orders.slice(0, 8) : defaultOrders;
+export default function CompletedOrdersTable() {
+  const [deliveries, setDeliveries] = useState<ParcelItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleCopy = (id: string) => {
-    navigator.clipboard.writeText(id);
-    toast.success(`Copied ${id}`);
+  const fetchRecentDeliveries = async () => {
+    setLoading(true);
+    try {
+      const res = await myFetch("/parcel?page=1&limit=8");
+      if (res.success && res.data) {
+        const rawList = res.data.parcels || res.data.result || res.data.data || (Array.isArray(res.data) ? res.data : []);
+        setDeliveries(rawList);
+      }
+    } catch (err) {
+      console.error("Failed to load recent orders for overview:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const upper = status.toUpperCase();
-    if (upper === "DELIVERED" || upper === "COMPLETED") {
+  useEffect(() => {
+    fetchRecentDeliveries();
+  }, []);
+
+  const renderStatusBadge = (status: string) => {
+    const raw = (status || "").toUpperCase();
+    const formatted = raw.replace(/_/g, " ");
+
+    if (raw === "CREATED" || raw === "PENDING") {
       return (
-        <span className="inline-block border border-emerald-300 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-          {status}
-        </span>
-      );
-    } else if (upper === "IN TRANSIT" || upper === "DISPATCHED") {
-      return (
-        <span className="inline-block border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-          {status}
-        </span>
-      );
-    } else if (upper === "CANCELLED" || upper === "FAILED") {
-      return (
-        <span className="inline-block border border-red-300 bg-red-50 text-red-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-          {status}
-        </span>
-      );
-    } else {
-      return (
-        <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full px-3 py-0.5 uppercase tracking-wide">
-          {status}
+        <span className="inline-flex items-center gap-1.5 bg-[#E0F2FE] text-[#0284C7] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-sky-200/60">
+          <Clock className="h-3 w-3" />
+          <span>PENDING</span>
         </span>
       );
     }
+    if (
+      [
+        "RIDER_ASSIGNED",
+        "PARTNER_ASSIGNED",
+        "ON_THE_WAY_TO_PICKUP",
+        "PICKED_UP",
+        "ON_THE_WAY_TO_DELIVERY",
+        "ASSIGNED",
+        "IN_PROGRESS",
+      ].includes(raw)
+    ) {
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200/60">
+          <Bike className="h-3 w-3" />
+          <span>{formatted}</span>
+        </span>
+      );
+    }
+    if (raw === "DELIVERED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
+          <CheckCircle2 className="h-3 w-3" />
+          <span>DELIVERED</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-red-200/60">
+        <XCircle className="h-3 w-3" />
+        <span>{formatted || "CANCELLED"}</span>
+      </span>
+    );
   };
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col gap-6">
-      {/* Table Header & View All Action Button */}
+      {/* Table Header & View All Link */}
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-slate-900">Recent Orders</h3>
 
@@ -73,59 +126,110 @@ export default function CompletedOrdersTable({ orders = defaultOrders }: Complet
         </Link>
       </div>
 
-      {/* Table Container */}
+      {/* Deliveries Table Card */}
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-left text-xs font-medium text-slate-600 border-collapse">
+        <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              <th className="py-3 px-3">SL</th>
-              <th className="py-3 px-3">Booking ID</th>
-              <th className="py-3 px-3">Customer Name</th>
-              <th className="py-3 px-3">Provider Contact</th>
-              <th className="py-3 px-3">Price</th>
-              <th className="py-3 px-3">Operational Fee</th>
-              <th className="py-3 px-3">Platform Fee</th>
-              <th className="py-3 px-3">Booking Date</th>
-              <th className="py-3 px-3 text-center">Order Status</th>
-              <th className="py-3 px-3 text-right">Action</th>
+              <th className="py-4 px-4">ORDER ID</th>
+              <th className="py-4 px-4">USER NAME</th>
+              <th className="py-4 px-4">ROUTE</th>
+              <th className="py-4 px-4">STATUS</th>
+              <th className="py-4 px-4 text-right">ACTION</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {displayOrders.map((row) => (
-              <tr key={row.bookingId} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-4 px-3 text-slate-500">{row.sl}</td>
-                <td className="py-4 px-3 font-semibold text-slate-900">
-                  <div className="flex items-center gap-1.5">
-                    <span>{row.bookingId}</span>
-                    <button
-                      onClick={() => handleCopy(row.bookingId)}
-                      className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 cursor-pointer"
-                      title="Copy Booking ID"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="py-16 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="h-7 w-7 animate-spin text-[#10B981]" />
+                    <span className="text-xs font-medium">Loading recent orders...</span>
                   </div>
                 </td>
-                <td className="py-4 px-3 text-slate-700 font-semibold">{row.customerName}</td>
-                <td className="py-4 px-3 text-slate-500">{row.providerContact}</td>
-                <td className="py-4 px-3 font-bold text-blue-600">{row.price}</td>
-                <td className="py-4 px-3 font-bold text-blue-600">{row.operationalFee}</td>
-                <td className="py-4 px-3 font-bold text-blue-600">{row.platformFee}</td>
-                <td className="py-4 px-3 text-slate-500">{row.bookingDate}</td>
-                <td className="py-4 px-3 text-center">
-                  {getStatusBadge(row.status)}
-                </td>
-                <td className="py-4 px-3 text-right">
-                  <Link
-                    href={`/products/details?id=${row.bookingId}`}
-                    className="p-1.5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="View Order Details"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Link>
+              </tr>
+            ) : deliveries.length > 0 ? (
+              deliveries.map((row) => {
+                const displayId = row.parcelId || `#${row._id.slice(-6).toUpperCase()}`;
+                const customerName = row.sender?.fullName || "Guest Customer";
+                const customerPhone = row.sender?.phone || row.receiverPhone || "N/A";
+                const customerAvatar = getImageUrl(row.sender?.image);
+
+                const pickupStr = row.pickupLocation?.address || row.pickupLocation?.name || "Pickup";
+                const dropStr = row.dropLocation?.address || row.dropLocation?.name || "Dropoff";
+
+                return (
+                  <tr key={row._id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* ORDER ID */}
+                    <td className="py-4 px-4 text-xs font-semibold text-[#10B981]">
+                      <div className="flex items-center gap-1.5">
+                        <span>{displayId}</span>
+                        <CopyButton text={displayId} label="Order ID" />
+                      </div>
+                    </td>
+
+                    {/* USER NAME */}
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        {customerAvatar ? (
+                          <Image
+                            src={customerAvatar}
+                            alt={customerName}
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 rounded-full object-cover border border-slate-100 shadow-sm shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-[#E6F4EA] text-[#10B981] font-bold text-xs flex items-center justify-center border border-emerald-100 shrink-0">
+                            {customerName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-800 leading-tight">
+                            {customerName}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-400 mt-0.5">
+                            {customerPhone}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* ROUTE */}
+                    <td className="py-4 px-4">
+                      <div className="flex flex-col max-w-xs">
+                        <span className="text-xs font-semibold text-slate-700 truncate" title={pickupStr}>
+                          From: {pickupStr}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 truncate mt-0.5" title={dropStr}>
+                          To: {dropStr}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* STATUS */}
+                    <td className="py-4 px-4">{renderStatusBadge(row.status)}</td>
+
+                    {/* ACTION */}
+                    <td className="py-4 px-4 text-right">
+                      <Link
+                        href={`/products/details?id=${row._id}&from=/`}
+                        className="inline-flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-[#10B981] hover:bg-emerald-50 transition-colors cursor-pointer"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
+                  No recent orders found.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

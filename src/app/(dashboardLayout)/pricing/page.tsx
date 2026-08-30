@@ -60,7 +60,7 @@ const defaultAllFareSettings: Record<string, IFareSetting> = {
   tricycle: { ...defaultVehicleSetting, baseFee: 800, maxWeight: 100, maxVolume: 4.0 },
   car: { ...defaultVehicleSetting, baseFee: 1500, maxWeight: 350, maxVolume: 8.0 },
   van: { ...defaultVehicleSetting, baseFee: 3000, maxWeight: 1200, maxVolume: 18.0 },
-  truck: { ...defaultVehicleSetting, baseFee: 6000, maxWeight: 5000, maxVolume: 45.0 },
+  small_cargo: { ...defaultVehicleSetting, baseFee: 6000, maxWeight: 5000, maxVolume: 45.0 },
 };
 
 const vehicleTabs = [
@@ -68,7 +68,7 @@ const vehicleTabs = [
   { name: "Tricycle", key: "tricycle", icon: Bike },
   { name: "Car", key: "car", icon: Car },
   { name: "Van", key: "van", icon: Truck },
-  { name: "Truck", key: "truck", icon: Truck },
+  { name: "Small Cargo", key: "small_cargo", icon: Truck },
 ];
 
 export default function SettingsPageContent() {

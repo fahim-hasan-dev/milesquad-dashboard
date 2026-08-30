@@ -43,6 +43,10 @@ interface ParcelDetail {
   totalDeliveryFee?: number;
   totalToPay?: number;
   vehicleType?: string;
+  dropDistance?: number;
+  dropDuration?: number;
+  pickUpDistance?: number;
+  pickUpDuration?: number;
   distance?: number;
   duration?: number;
   baseFee?: number;
@@ -500,7 +504,10 @@ function OrderDetailsContent() {
                   DISTANCE
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">
-                  {parcel.distance ? `${parcel.distance} km` : "N/A"}
+                  {(() => {
+                    const dist = parcel.dropDistance ?? parcel.distance ?? parcel.pickUpDistance;
+                    return dist !== undefined && dist !== null ? `${Number(dist).toFixed(1)} km` : "N/A";
+                  })()}
                 </h4>
               </div>
             </div>
@@ -515,7 +522,10 @@ function OrderDetailsContent() {
                   DURATION
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">
-                  {parcel.duration ? `${parcel.duration} mins` : "N/A"}
+                  {(() => {
+                    const dur = parcel.dropDuration ?? parcel.duration ?? parcel.pickUpDuration;
+                    return dur !== undefined && dur !== null ? `${Math.round(Number(dur))} mins` : "N/A";
+                  })()}
                 </h4>
               </div>
             </div>
@@ -646,42 +656,42 @@ function OrderDetailsContent() {
               {typeof parcel.baseFee === "number" && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Base Fee</span>
-                  <span className="font-semibold text-slate-900">${parcel.baseFee.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.baseFee.toFixed(2)} XOF</span>
                 </div>
               )}
 
               {typeof parcel.fuelCost === "number" && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Fuel Cost</span>
-                  <span className="font-semibold text-slate-900">${parcel.fuelCost.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.fuelCost.toFixed(2)} XOF</span>
                 </div>
               )}
 
               {typeof parcel.timeCost === "number" && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Time Cost</span>
-                  <span className="font-semibold text-slate-900">${parcel.timeCost.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.timeCost.toFixed(2)} XOF</span>
                 </div>
               )}
 
               {typeof parcel.serviceFee === "number" && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Service Fee</span>
-                  <span className="font-semibold text-slate-900">${parcel.serviceFee.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.serviceFee.toFixed(2)} XOF</span>
                 </div>
               )}
 
               {typeof parcel.goodRisks === "number" && parcel.goodRisks > 0 && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Goods Risk</span>
-                  <span className="font-semibold text-slate-900">${parcel.goodRisks.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.goodRisks.toFixed(2)} XOF</span>
                 </div>
               )}
 
               {typeof parcel.overhead === "number" && parcel.overhead > 0 && (
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Overhead</span>
-                  <span className="font-semibold text-slate-900">${parcel.overhead.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{parcel.overhead.toFixed(2)} XOF</span>
                 </div>
               )}
 
@@ -689,7 +699,7 @@ function OrderDetailsContent() {
               <div className="w-full border-t border-slate-200 pt-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-900">Total To Pay</span>
                 <span className="text-xl font-black text-[#10B981]">
-                  ${totalFee.toFixed(2)}
+                  {totalFee.toFixed(2)} XOF
                 </span>
               </div>
             </div>
