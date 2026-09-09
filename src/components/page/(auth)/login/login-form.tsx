@@ -72,7 +72,7 @@ export function LoginForm({
       <div className="flex justify-center mb-6">
         <Image
           src="/logo.png"
-          alt="Zerokraft Logo"
+          alt="MileSquad Logo"
           width={220}
           height={120}
           priority

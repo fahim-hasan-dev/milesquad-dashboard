@@ -22,16 +22,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="offcanvas" className="bg-white border-r border-slate-100" {...props}>
-      {/* Sidebar Header with Zerokraft Logo */}
+      {/* Sidebar Header with MileSquad Logo */}
       <SidebarHeader className="py-6 px-4">
         <Link href="/" className="flex items-center justify-center">
           <Image
             src="/logo.png"
-            alt="Zerokraft Logo"
+            alt="MileSquad Logo"
             width={160}
             height={80}
             priority
-            className="w-36 h-auto object-contain"
+            className="w-36 h-auto max-h-16 object-contain"
           />
         </Link>
       </SidebarHeader>

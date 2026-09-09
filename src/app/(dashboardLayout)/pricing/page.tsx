@@ -17,7 +17,6 @@ import {
   Save,
   Sliders,
   AlertCircle,
-  Calendar,
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -34,7 +33,6 @@ interface IFareSetting {
   riskIndex2: number;
   riskIndex3: number;
   loadFactor: number;
-  scheduledDelivery: number;
   maxWeight: number;
   maxVolume: number;
 }
@@ -50,7 +48,6 @@ const defaultVehicleSetting: IFareSetting = {
   riskIndex2: 3.5,
   riskIndex3: 5.0,
   loadFactor: 10,
-  scheduledDelivery: 5,
   maxWeight: 20,
   maxVolume: 1.5,
 };
@@ -344,22 +341,6 @@ export default function SettingsPageContent() {
                   className="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
                 />
                 <span className="text-xs font-medium text-slate-400 shrink-0">%</span>
-              </div>
-            </div>
-
-            {/* Schedule Delivery */}
-            <div className="bg-slate-50/60 rounded-2xl p-4 border border-slate-200/60 space-y-2">
-              <label className="block text-xs font-bold text-slate-800">Scheduled Fee</label>
-              <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
-                <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
-                <input
-                  type="number"
-                  value={formatInputValue(currentVehicleSettings.scheduledDelivery)}
-                  onChange={(e) => handleFieldChange("scheduledDelivery", e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
-                />
-                <span className="text-xs font-medium text-slate-400 shrink-0">XOF/%</span>
               </div>
             </div>
           </div>

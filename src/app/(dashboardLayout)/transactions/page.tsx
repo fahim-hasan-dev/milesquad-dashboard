@@ -187,7 +187,7 @@ export default function TransactionsPage() {
                   id: parcelData._id,
                   parcelId: parcelData.parcelId || parcelData._id,
                   goodType: parcelData.goodType || "Parcel",
-                  totalDeliveryFee: parcelData.totalDeliveryFee || t.amount || 0,
+                  totalDeliveryFee: parcelData.deliveryFee || parcelData.totalDeliveryFee || parcelData.totalToPay || t.amount || 0,
                 }
               : undefined,
             amount: t.amount || 0,

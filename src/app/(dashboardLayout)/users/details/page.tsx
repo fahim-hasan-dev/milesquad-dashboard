@@ -159,7 +159,7 @@ function UserDetailsContent() {
 
         const ordersList: UserOrderItem[] = rawParcels.map((p: any, idx: number) => {
           const numPrice = Number(
-            p.totalToPay || p.totalPrice || p.pricingDetails?.customer?.totalToPay || p.totalDeliveryFee || p.price || p.itemValue || 0
+            p.deliveryFee || p.totalDeliveryFee || p.totalToPay || p.pricingDetails?.admin?.deliveryFee || p.pricingDetails?.customer?.deliveryFee || p.pricingDetails?.customer?.totalToPay || p.totalPrice || p.price || 0
           );
 
           return {

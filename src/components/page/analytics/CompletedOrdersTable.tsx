@@ -14,6 +14,7 @@ interface ParcelItem {
   parcelId?: string;
   goodType?: string;
   status: string;
+  deliveryFee?: number;
   totalDeliveryFee?: number;
   totalToPay?: number;
   pickupLocation?: {

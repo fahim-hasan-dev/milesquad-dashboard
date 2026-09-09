@@ -42,6 +42,7 @@ interface ParcelDetail {
   status: string;
   totalDeliveryFee?: number;
   totalToPay?: number;
+  deliveryFee?: number;
   vehicleType?: string;
   dropDistance?: number;
   dropDuration?: number;
@@ -53,8 +54,15 @@ interface ParcelDetail {
   fuelCost?: number;
   timeCost?: number;
   serviceFee?: number;
+  goodInsurance?: number;
   goodRisks?: number;
+  overheadCost?: number;
   overhead?: number;
+  directCost?: number;
+  operationCost?: number;
+  milesquadMargin?: number;
+  marginMilesquad?: number;
+  totalOfRun?: number;
   paymentMethod?: string;
   paymentStatus?: string;
   isPaid?: boolean;
@@ -62,20 +70,59 @@ interface ParcelDetail {
     baseFee?: number;
     timeCost?: number;
     fuelCost?: number;
+    directCost?: number;
+    totalOfRun?: number;
     totalPrice?: number;
     additionalCost?: number;
     totalRun?: number;
   };
   customerPricing?: {
-    totalOfRun?: number;
+    operationCost?: number;
     serviceFee?: number;
     goodInsurance?: number;
+    deliveryFee?: number;
     totalToPay?: number;
   };
   adminPricing?: {
+    baseFee?: number;
+    timeCost?: number;
+    fuelCost?: number;
+    directCost?: number;
+    overheadCost?: number;
     overhead?: number;
-    milesquadInsurance?: number;
+    operationCost?: number;
+    serviceFee?: number;
+    milesquadMargin?: number;
     marginMilesquad?: number;
+    deliveryFee?: number;
+    goodInsurance?: number;
+  };
+  pricingDetails?: {
+    driver?: {
+      baseFee?: number;
+      timeCost?: number;
+      fuelCost?: number;
+      directCost?: number;
+      totalOfRun?: number;
+    };
+    customer?: {
+      operationCost?: number;
+      serviceFee?: number;
+      goodInsurance?: number;
+      deliveryFee?: number;
+    };
+    admin?: {
+      baseFee?: number;
+      timeCost?: number;
+      fuelCost?: number;
+      directCost?: number;
+      overheadCost?: number;
+      operationCost?: number;
+      serviceFee?: number;
+      milesquadMargin?: number;
+      deliveryFee?: number;
+      goodInsurance?: number;
+    };
   };
   pickupLocation?: {
     address?: string;
@@ -226,7 +273,13 @@ function OrderDetailsContent() {
   const customerPhone = parcel.sender?.phone || parcel.receiverPhone || "N/A";
   const customerAvatar = getImageUrl(parcel.sender?.image);
 
-  const totalFee = parcel.totalDeliveryFee || parcel.totalToPay || 0;
+  const totalFee =
+    parcel.deliveryFee ??
+    parcel.totalDeliveryFee ??
+    parcel.totalToPay ??
+    parcel.pricingDetails?.admin?.deliveryFee ??
+    parcel.pricingDetails?.customer?.deliveryFee ??
+    0;
   const createdAtDate = parcel.createdAt
     ? new Date(parcel.createdAt).toLocaleDateString("en-US", {
         month: "short",
@@ -653,47 +706,75 @@ function OrderDetailsContent() {
             </div>
 
             <div className="space-y-2.5 text-xs font-medium">
-              {typeof parcel.baseFee === "number" && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Base Fee</span>
-                  <span className="font-semibold text-slate-900">{parcel.baseFee.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const baseFee = parcel.baseFee ?? parcel.pricingDetails?.admin?.baseFee ?? parcel.pricingDetails?.driver?.baseFee;
+                return typeof baseFee === "number" && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Base Fee</span>
+                    <span className="font-semibold text-slate-900">{baseFee.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
-              {typeof parcel.fuelCost === "number" && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Fuel Cost</span>
-                  <span className="font-semibold text-slate-900">{parcel.fuelCost.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const fuelCost = parcel.fuelCost ?? parcel.pricingDetails?.admin?.fuelCost ?? parcel.pricingDetails?.driver?.fuelCost;
+                return typeof fuelCost === "number" && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Fuel Cost</span>
+                    <span className="font-semibold text-slate-900">{fuelCost.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
-              {typeof parcel.timeCost === "number" && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Time Cost</span>
-                  <span className="font-semibold text-slate-900">{parcel.timeCost.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const timeCost = parcel.timeCost ?? parcel.pricingDetails?.admin?.timeCost ?? parcel.pricingDetails?.driver?.timeCost;
+                return typeof timeCost === "number" && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Time Cost</span>
+                    <span className="font-semibold text-slate-900">{timeCost.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
-              {typeof parcel.serviceFee === "number" && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Service Fee</span>
-                  <span className="font-semibold text-slate-900">{parcel.serviceFee.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const serviceFee = parcel.serviceFee ?? parcel.pricingDetails?.admin?.serviceFee ?? parcel.pricingDetails?.customer?.serviceFee;
+                return typeof serviceFee === "number" && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Service Fee</span>
+                    <span className="font-semibold text-slate-900">{serviceFee.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
-              {typeof parcel.goodRisks === "number" && parcel.goodRisks > 0 && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Goods Risk</span>
-                  <span className="font-semibold text-slate-900">{parcel.goodRisks.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const goodInsurance = parcel.goodInsurance ?? parcel.goodRisks ?? parcel.pricingDetails?.admin?.goodInsurance ?? parcel.pricingDetails?.customer?.goodInsurance;
+                return typeof goodInsurance === "number" && goodInsurance > 0 && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Goods Insurance</span>
+                    <span className="font-semibold text-slate-900">{goodInsurance.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
-              {typeof parcel.overhead === "number" && parcel.overhead > 0 && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>Overhead</span>
-                  <span className="font-semibold text-slate-900">{parcel.overhead.toFixed(2)} XOF</span>
-                </div>
-              )}
+              {(() => {
+                const overhead = parcel.overheadCost ?? parcel.overhead ?? parcel.pricingDetails?.admin?.overheadCost;
+                return typeof overhead === "number" && overhead > 0 && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Overhead</span>
+                    <span className="font-semibold text-slate-900">{overhead.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const margin = parcel.milesquadMargin ?? parcel.marginMilesquad ?? parcel.pricingDetails?.admin?.milesquadMargin;
+                return typeof margin === "number" && margin > 0 && (
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Platform Margin</span>
+                    <span className="font-semibold text-slate-900">{margin.toFixed(2)} XOF</span>
+                  </div>
+                );
+              })()}
 
               {/* Total To Pay */}
               <div className="w-full border-t border-slate-200 pt-3 flex items-center justify-between">
