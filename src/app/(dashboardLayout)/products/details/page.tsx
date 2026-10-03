@@ -262,7 +262,12 @@ function OrderDetailsContent() {
     );
   }
 
-  const isPending = parcel.status === "created" || parcel.status === "pending";
+  const normalizedStatus = (parcel.status || "").trim().toUpperCase();
+  const isPending =
+    normalizedStatus === "PENDING" ||
+    normalizedStatus === "CREATED" ||
+    normalizedStatus === "CONFIRMED" ||
+    (!parcel.driver && !["DELIVERED", "CANCELLED", "COMPLETED"].includes(normalizedStatus));
   const displayId = parcel.parcelId || `#${parcel._id.slice(-8).toUpperCase()}`;
 
   const pickupAddress = parcel.pickupLocation?.address || parcel.pickupLocation?.name || "Pickup Location";

@@ -108,13 +108,13 @@ export default function DeliveriesTable() {
       }
       if (statusFilter !== "ALL") {
         if (statusFilter === "PENDING") {
-          queryParams.set("status", "PENDING,CREATED,CONFIRMED");
+          queryParams.set("status", "PENDING,CREATED,CONFIRMED,pending,created,confirmed");
         } else if (statusFilter === "ASSIGNED") {
-          queryParams.set("status", "RIDER_ASSIGNED,PARTNER_ASSIGNED,ON_THE_WAY_TO_PICKUP,PICKED_UP,ON_THE_WAY_TO_DELIVERY");
+          queryParams.set("status", "RIDER_ASSIGNED,PARTNER_ASSIGNED,ON_THE_WAY_TO_PICKUP,PICKED_UP,ON_THE_WAY_TO_DELIVERY,rider_assigned,partner_assigned");
         } else if (statusFilter === "DELIVERED") {
-          queryParams.set("status", "DELIVERED");
+          queryParams.set("status", "DELIVERED,delivered");
         } else if (statusFilter === "CANCELLED") {
-          queryParams.set("status", "CANCELLED");
+          queryParams.set("status", "CANCELLED,cancelled");
         }
       }
 
@@ -429,7 +429,12 @@ export default function DeliveriesTable() {
 
                   const pickupStr = row.pickupLocation?.address || row.pickupLocation?.name || "Pickup";
                   const dropStr = row.dropLocation?.address || row.dropLocation?.name || "Dropoff";
-                  const isPending = row.status === "created" || row.status === "pending";
+                  const statusUpper = (row.status || "").trim().toUpperCase();
+                  const isPending =
+                    statusUpper === "PENDING" ||
+                    statusUpper === "CREATED" ||
+                    statusUpper === "CONFIRMED" ||
+                    (!row.driver && !["DELIVERED", "CANCELLED", "COMPLETED"].includes(statusUpper));
 
                   return (
                     <tr key={row._id} className="hover:bg-slate-50/70 transition-colors">

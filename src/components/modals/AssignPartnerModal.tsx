@@ -75,9 +75,16 @@ export default function AssignPartnerModal({
     toast.loading("Assigning partner...", { id: "assign-partner" });
 
     try {
+      const payload = {
+        assigneeId: selectedPartnerId,
+        partnerId: selectedPartnerId,
+        partner: selectedPartnerId,
+        assigneeType: "partner",
+      };
+
       const res = await myFetch(`/parcel/assign/${parcelId}`, {
         method: "PATCH",
-        body: { partnerId: selectedPartnerId },
+        body: payload,
       });
 
       if (res.success) {

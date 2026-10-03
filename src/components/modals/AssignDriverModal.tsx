@@ -14,10 +14,12 @@ import { getImageUrl } from "@/utils/imageUrl";
 
 interface DriverItem {
   _id: string;
-  fullName: string;
+  fullName?: string;
+  name?: string;
   phone?: string;
   email?: string;
   image?: string;
+  avatar?: string;
   distanceText?: string;
   driverInfo?: {
     vehicleType?: string;
@@ -25,7 +27,19 @@ interface DriverItem {
     totalRating?: number;
   };
   distanceKm?: number;
+  vehicleType?: string;
+  rating?: number;
 }
+
+const extractDriversList = (data: any): DriverItem[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.drivers)) return data.drivers;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.users)) return data.users;
+  if (Array.isArray(data.result)) return data.result;
+  return [];
+};
 
 interface AssignDriverModalProps {
   isOpen: boolean;
@@ -53,19 +67,40 @@ export default function AssignDriverModal({
     try {
       // 1. Try available drivers for parcel endpoint
       const res = await myFetch(`/parcel/${parcelId}/available-drivers`);
-      if (res.success && res.data?.drivers && res.data.drivers.length > 0) {
-        setDrivers(res.data.drivers);
-        setSelectedDriverId(res.data.drivers[0]._id);
-      } else {
-        // 2. Fallback to fetching all active drivers
-        const fallbackRes = await myFetch(`/user?role=driver&status=active&limit=20`);
-        if (fallbackRes.success && fallbackRes.data) {
-          const list = fallbackRes.data.users || fallbackRes.data.data || fallbackRes.data || [];
-          setDrivers(list);
-          if (list.length > 0) {
-            setSelectedDriverId(list[0]._id);
+      let list = extractDriversList(res?.data);
+
+      // 2. If empty or not successful, try /parcel/available-drivers/:parcelId
+      if (!res?.success || list.length === 0) {
+        const altRes = await myFetch(`/parcel/available-drivers/${parcelId}`);
+        const altList = extractDriversList(altRes?.data);
+        if (altRes?.success && altList.length > 0) {
+          list = altList;
+        }
+      }
+
+      // 3. Fallback: try general available drivers with query
+      if (list.length === 0) {
+        const generalRes = await myFetch(`/parcel/available-drivers?parcelId=${parcelId}`);
+        const generalList = extractDriversList(generalRes?.data);
+        if (generalRes?.success && generalList.length > 0) {
+          list = generalList;
+        }
+      }
+
+      // 4. Fallback: fetching all drivers from user endpoint
+      if (list.length === 0) {
+        const fallbackRes = await myFetch(`/user?role=driver&limit=50`);
+        if (fallbackRes?.success && fallbackRes?.data) {
+          const fallbackList = extractDriversList(fallbackRes.data);
+          if (fallbackList.length > 0) {
+            list = fallbackList;
           }
         }
+      }
+
+      setDrivers(list);
+      if (list.length > 0) {
+        setSelectedDriverId(list[0]._id);
       }
     } catch (err) {
       console.error("Error fetching drivers:", err);
@@ -91,21 +126,43 @@ export default function AssignDriverModal({
     toast.loading("Assigning driver...", { id: "assign-driver" });
 
     try {
-      const res = await myFetch(`/parcel/assign/${parcelId}`, {
+      const payload = {
+        assigneeId: selectedDriverId,
+        driverId: selectedDriverId,
+        riderId: selectedDriverId,
+        driver: selectedDriverId,
+        assigneeType: "driver",
+      };
+
+      let res = await myFetch(`/parcel/assign/${parcelId}`, {
         method: "PATCH",
-        body: { driverId: selectedDriverId },
+        body: payload,
       });
 
-      if (res.success) {
+      if (!res?.success && (res?.statusCode === 404 || res?.statusCode === 405)) {
+        res = await myFetch(`/parcel/assign-driver/${parcelId}`, {
+          method: "PATCH",
+          body: payload,
+        });
+      }
+
+      if (!res?.success && (res?.statusCode === 404 || res?.statusCode === 405)) {
+        res = await myFetch(`/parcel/assign/${parcelId}`, {
+          method: "POST",
+          body: payload,
+        });
+      }
+
+      if (res?.success) {
         const selectedDriver = drivers.find((d) => d._id === selectedDriverId);
-        const driverName = selectedDriver?.fullName || "Driver";
+        const driverName = selectedDriver?.fullName || selectedDriver?.name || "Driver";
         toast.success(`Driver ${driverName} assigned successfully!`, { id: "assign-driver" });
         if (onConfirmAssignment) {
           onConfirmAssignment(driverName);
         }
         onClose();
       } else {
-        toast.error(res.message || "Failed to assign driver", { id: "assign-driver" });
+        toast.error(res?.message || "Failed to assign driver", { id: "assign-driver" });
       }
     } catch (error) {
       console.error("Assign driver error:", error);
@@ -145,13 +202,20 @@ export default function AssignDriverModal({
             <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
               {drivers.map((driver) => {
                 const isSelected = selectedDriverId === driver._id;
-                const initials = driver.fullName
-                  ? driver.fullName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                  : "DR";
+                const displayName = driver.fullName || driver.name || "Driver";
+                const displayImage = driver.image || driver.avatar;
+                const displayVehicle =
+                  driver.driverInfo?.vehicleType || driver.vehicleType || "Driver";
+                const displayRating =
+                  driver.driverInfo?.averageRating || driver.rating || 4.8;
+                const displayContact = driver.phone || driver.email || "Active";
+
+                const initials = displayName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .filter(Boolean)
+                  .join("")
+                  .toUpperCase() || "DR";
 
                 return (
                   <div
@@ -165,10 +229,10 @@ export default function AssignDriverModal({
                   >
                     {/* Left Avatar + Info */}
                     <div className="flex items-center gap-3">
-                      {driver.image ? (
+                      {displayImage ? (
                         <img
-                          src={getImageUrl(driver.image)}
-                          alt={driver.fullName}
+                          src={getImageUrl(displayImage)}
+                          alt={displayName}
                           className="size-10 rounded-full object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
@@ -178,10 +242,10 @@ export default function AssignDriverModal({
                       )}
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                          {driver.fullName}
+                          {displayName}
                         </h4>
                         <p className="text-xs text-slate-400 font-medium mt-0.5">
-                          {driver.driverInfo?.vehicleType || "Driver"}
+                          {displayVehicle}
                           {driver.distanceText ? ` · ${driver.distanceText}` : ""}
                         </p>
                       </div>
@@ -192,10 +256,10 @@ export default function AssignDriverModal({
                       <div>
                         <div className="flex items-center justify-end gap-1 text-xs font-bold text-slate-800">
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span>{driver.driverInfo?.averageRating || 4.8}</span>
+                          <span>{displayRating}</span>
                         </div>
                         <span className="block text-[10px] text-slate-400 font-medium mt-0.5">
-                          {driver.phone || "Active"}
+                          {displayContact}
                         </span>
                       </div>
 
