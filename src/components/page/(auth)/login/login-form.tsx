@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuthContext } from "@/contexts/AuthContext";
 import { myFetch } from "@/utils/myFetch";
+import { registerFcmToken } from "@/utils/fcm";
 
 export function LoginForm({
   className,
@@ -52,6 +53,11 @@ export function LoginForm({
       if (res.success && res.data?.accessToken) {
         setToken(res.data.accessToken);
         setUser(res.data.userInfo || { email, role: res.data.role });
+
+        // Trigger FCM token generation and register with backend
+        registerFcmToken(res.data.accessToken).catch((err) => {
+          console.warn("[FCM] Background token registration on login warning:", err);
+        });
 
         toast.success(res.message || "Login successful", { id: "login" });
         router.push(redirect || "/");

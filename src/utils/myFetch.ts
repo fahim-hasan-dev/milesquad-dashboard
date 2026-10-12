@@ -68,8 +68,27 @@ export const myFetch = async (
     if (response.status === 401) {
       try {
         const cookieStore = await cookies();
+        const fcmToken = cookieStore.get("fcmToken")?.value;
+
+        if (fcmToken && accessToken) {
+          try {
+            await fetch(`${config.baseURL}/auth/remove-fcm-token`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ fcmToken }),
+            });
+          } catch {
+            // Ignore errors if token is already invalidated on backend
+          }
+        }
+
         cookieStore.delete("accessToken");
         cookieStore.delete("user");
+        cookieStore.delete("fcmToken");
       } catch {
         // Ignored if called in context where cookies cannot be mutated
       }

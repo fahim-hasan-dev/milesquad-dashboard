@@ -43,6 +43,7 @@
     "cookies-next": "^5.1.0",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.7",
+    "firebase": "^13.0.0",
     "input-otp": "^1.4.2",
     "jodit-react": "^5.2.19",
     "jspdf": "^3.0.1",

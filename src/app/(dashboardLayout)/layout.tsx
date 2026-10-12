@@ -25,6 +25,8 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
 import { getImageUrl } from "@/utils/imageUrl";
+import { registerFcmToken } from "@/utils/fcm";
+import { onForegroundMessage } from "@/lib/firebase";
 
 export default function DashboardLayout({
   children,
@@ -49,7 +51,7 @@ export default function DashboardLayout({
     const cookieToken = getCookie("accessToken");
     if (!token && !cookieToken) {
       setIsAuthenticated(false);
-      router.replace("/login");
+      logout();
       return;
     }
 
@@ -60,7 +62,42 @@ export default function DashboardLayout({
       toast.error("Access Denied: Sub-admins cannot access this section.");
       router.replace("/");
     }
-  }, [token, pathname, router, isSubAdmin]);
+  }, [token, pathname, router, isSubAdmin, logout]);
+
+  // Sync FCM token upon loading dashboard
+  useEffect(() => {
+    if (isAuthenticated && (token || getCookie("accessToken"))) {
+      const activeToken = token || (getCookie("accessToken") as string);
+      registerFcmToken(activeToken).catch((err) => {
+        console.warn("[DashboardLayout] FCM token registration:", err);
+      });
+    }
+  }, [isAuthenticated, token]);
+
+  // Foreground push notification listener
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    onForegroundMessage((payload) => {
+      const title = payload.notification?.title || payload.data?.title || "New Notification";
+      const body = payload.notification?.body || payload.data?.body || "";
+      toast(
+        () => (
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-sm text-slate-900">{title}</span>
+            {body && <span className="text-xs text-slate-600">{body}</span>}
+          </div>
+        ),
+        { icon: "🔔", duration: 6000 }
+      );
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const [isChangeNameModalOpen, setIsChangeNameModalOpen] = useState(false);
   const [isChangePictureModalOpen, setIsChangePictureModalOpen] = useState(false);
