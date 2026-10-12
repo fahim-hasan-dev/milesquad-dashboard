@@ -31,6 +31,9 @@ import { myFetch } from "@/utils/myFetch";
 import { getImageUrl } from "@/utils/imageUrl";
 import CopyButton from "@/components/common/CopyButton";
 import Pagination from "@/components/common/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
+import StatusBadge from "@/components/common/StatusBadge";
+import TableState from "@/components/common/TableState";
 
 interface UserItem {
   id: string;
@@ -49,16 +52,21 @@ export default function UsersTable() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     let query = `/user?role=customer&page=${currentPage}&limit=10`;
-    if (searchTerm.trim()) {
-      query += `&searchTerm=${encodeURIComponent(searchTerm.trim())}`;
+    if (debouncedSearch.trim()) {
+      query += `&searchTerm=${encodeURIComponent(debouncedSearch.trim())}`;
     }
     if (statusFilter !== "All") {
       const statusValue = statusFilter === "Suspended" ? "restricted" : statusFilter.toLowerCase();
@@ -107,7 +115,7 @@ export default function UsersTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -301,16 +309,13 @@ export default function UsersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
-                      <span>Loading customers data...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : users.length > 0 ? (
+              <TableState
+                loading={loading}
+                isEmpty={users.length === 0}
+                colSpan={5}
+                loadingMessage="Loading customers data..."
+              />
+              {!loading && users.length > 0 &&
                 users.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* User Profile Cell */}
@@ -359,27 +364,7 @@ export default function UsersTable() {
 
                     {/* Status Cell */}
                     <td className="py-4 px-4">
-                      {row.status === "Active" ? (
-                        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Active</span>
-                        </span>
-                      ) : row.status === "Suspended" ? (
-                        <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span>Suspended</span>
-                        </span>
-                      ) : row.status === "Pending" ? (
-                        <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1 rounded-full">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Pending</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 text-xs font-semibold px-3 py-1 rounded-full">
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span>Inactive</span>
-                        </span>
-                      )}
+                      <StatusBadge status={row.status} />
                     </td>
 
                     {/* Actions Cell */}
@@ -407,14 +392,7 @@ export default function UsersTable() {
                       </DropdownMenu>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    No users found matching your search.
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>

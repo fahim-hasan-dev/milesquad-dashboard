@@ -34,6 +34,10 @@ import { getImageUrl } from "@/utils/imageUrl";
 import { BASE_URL } from "@/config/env-config";
 import CopyButton from "@/components/common/CopyButton";
 import Pagination from "@/components/common/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
+import StatusBadge from "@/components/common/StatusBadge";
+import UserAvatar from "@/components/common/UserAvatar";
+import TableState from "@/components/common/TableState";
 
 export interface ParcelItem {
   _id: string;
@@ -84,10 +88,15 @@ export default function DeliveriesTable() {
   const [deliveries, setDeliveries] = useState<ParcelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   const [isAssignDriverModalOpen, setIsAssignDriverModalOpen] = useState(false);
   const [isAssignPartnerModalOpen, setIsAssignPartnerModalOpen] = useState(false);
@@ -103,8 +112,8 @@ export default function DeliveriesTable() {
       const queryParams = new URLSearchParams();
       queryParams.set("page", currentPage.toString());
       queryParams.set("limit", "10");
-      if (searchTerm.trim()) {
-        queryParams.set("searchTerm", searchTerm.trim());
+      if (debouncedSearch.trim()) {
+        queryParams.set("searchTerm", debouncedSearch.trim());
       }
       if (statusFilter !== "ALL") {
         if (statusFilter === "PENDING") {
@@ -132,7 +141,7 @@ export default function DeliveriesTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchDeliveries();
@@ -191,52 +200,6 @@ export default function DeliveriesTable() {
       console.error("Error downloading invoice:", err);
       toast.error(err?.message || "Failed to download invoice", { id: "download-invoice" });
     }
-  };
-
-  const renderStatusBadge = (status: string) => {
-    const raw = (status || "").toUpperCase();
-    const formatted = raw.replace(/_/g, " ");
-
-    if (raw === "CREATED" || raw === "PENDING") {
-      return (
-        <span className="inline-flex items-center gap-1.5 bg-[#E0F2FE] text-[#0284C7] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-sky-200/60">
-          <Clock className="h-3 w-3" />
-          <span>PENDING</span>
-        </span>
-      );
-    }
-    if (
-      [
-        "RIDER_ASSIGNED",
-        "PARTNER_ASSIGNED",
-        "ON_THE_WAY_TO_PICKUP",
-        "PICKED_UP",
-        "ON_THE_WAY_TO_DELIVERY",
-        "ASSIGNED",
-        "IN_PROGRESS",
-      ].includes(raw)
-    ) {
-      return (
-        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200/60">
-          <Bike className="h-3 w-3" />
-          <span>{formatted}</span>
-        </span>
-      );
-    }
-    if (raw === "DELIVERED") {
-      return (
-        <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
-          <CheckCircle2 className="h-3 w-3" />
-          <span>DELIVERED</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-red-200/60">
-        <XCircle className="h-3 w-3" />
-        <span>{formatted || "CANCELLED"}</span>
-      </span>
-    );
   };
 
   const handleExportDeliveries = async (exportParams: {
@@ -411,16 +374,13 @@ export default function DeliveriesTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="h-7 w-7 animate-spin text-[#10B981]" />
-                      <span className="text-xs font-medium">Loading deliveries from server...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : deliveries.length > 0 ? (
+              <TableState
+                loading={loading}
+                isEmpty={deliveries.length === 0}
+                colSpan={5}
+                loadingMessage="Loading deliveries from server..."
+              />
+              {!loading && deliveries.length > 0 &&
                 deliveries.map((row) => {
                   const displayId = row.parcelId || `#${row._id.slice(-6).toUpperCase()}`;
                   const customerName = row.sender?.fullName || "Guest Customer";
@@ -449,19 +409,7 @@ export default function DeliveriesTable() {
                       {/* USER NAME */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          {customerAvatar ? (
-                            <Image
-                              src={customerAvatar}
-                              alt={customerName}
-                              width={40}
-                              height={40}
-                              className="w-10 h-10 rounded-full object-cover border border-slate-100 shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-[#10B981] text-white font-extrabold flex items-center justify-center text-xs shrink-0">
-                              {customerName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          <UserAvatar src={customerAvatar} name={customerName} size="md" />
                           <div>
                             <h4 className="text-xs md:text-sm font-bold text-slate-900 leading-tight">
                               {customerName}
@@ -487,7 +435,7 @@ export default function DeliveriesTable() {
                       </td>
 
                       {/* STATUS */}
-                      <td className="py-4 px-4">{renderStatusBadge(row.status)}</td>
+                      <td className="py-4 px-4"><StatusBadge status={row.status} uppercase /></td>
 
                       {/* ACTION */}
                       <td className="py-4 px-4 text-right">
@@ -551,14 +499,7 @@ export default function DeliveriesTable() {
                       </td>
                     </tr>
                   );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    No deliveries found.
-                  </td>
-                </tr>
-              )}
+                })}
             </tbody>
           </table>
         </div>

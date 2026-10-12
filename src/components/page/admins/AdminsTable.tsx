@@ -30,11 +30,15 @@ import DeleteModal from "@/components/modals/DeleteModal";
 import { myFetch } from "@/utils/myFetch";
 import CopyButton from "@/components/common/CopyButton";
 import Pagination from "@/components/common/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
+import StatusBadge from "@/components/common/StatusBadge";
+import TableState from "@/components/common/TableState";
 
 export default function AdminsTable() {
   const [admins, setAdmins] = useState<AdminData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 350);
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -56,8 +60,8 @@ export default function AdminsTable() {
       const queryParams = new URLSearchParams();
       queryParams.set("page", currentPage.toString());
       queryParams.set("limit", "10");
-      if (searchTerm.trim()) {
-        queryParams.set("searchTerm", searchTerm.trim());
+      if (debouncedSearchTerm.trim()) {
+        queryParams.set("searchTerm", debouncedSearchTerm.trim());
       }
       if (statusFilter !== "All") {
         const statusVal = statusFilter === "Blocked" ? "restricted" : statusFilter.toLowerCase();
@@ -83,7 +87,7 @@ export default function AdminsTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, debouncedSearchTerm, statusFilter]);
 
   useEffect(() => {
     fetchAdmins();
@@ -238,16 +242,13 @@ export default function AdminsTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="h-7 w-7 animate-spin text-[#10B981]" />
-                      <span className="text-xs font-medium">Loading admins from server...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : admins.length > 0 ? (
+              <TableState
+                loading={loading}
+                isEmpty={admins.length === 0}
+                colSpan={5}
+                loadingMessage="Loading admins from server..."
+              />
+              {!loading && admins.length > 0 &&
                 admins.map((row) => {
                   const isSuperAdmin = row.role === "SUPER_ADMIN";
 
@@ -304,17 +305,7 @@ export default function AdminsTable() {
 
                       {/* Status Cell */}
                       <td className="py-4 px-4">
-                        {row.status === "active" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Active</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
-                            <XCircle className="h-3.5 w-3.5" />
-                            <span>{row.status === "blocked" ? "Suspended" : row.status}</span>
-                          </span>
-                        )}
+                        <StatusBadge status={row.status === "blocked" ? "suspended" : row.status} />
                       </td>
 
                       {/* Actions Cell */}
@@ -373,14 +364,7 @@ export default function AdminsTable() {
                       </td>
                     </tr>
                   );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    No admins found matching your search.
-                  </td>
-                </tr>
-              )}
+                })}
             </tbody>
           </table>
         </div>

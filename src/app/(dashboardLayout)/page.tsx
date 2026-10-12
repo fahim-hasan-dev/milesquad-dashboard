@@ -2,13 +2,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import StatCard from "@/components/page/analytics/cards/StatCard";
-import SalesAnalyticsChart from "@/components/page/analytics/charts/SalesAnalyticsChart";
-import UserDistributionChart from "@/components/page/analytics/charts/UserDistributionChart";
-import LivePlatformMap from "@/components/page/analytics/LivePlatformMap";
-import DeliveriesOverviewChart from "@/components/page/analytics/charts/DeliveriesOverviewChart";
-import RevenueBreakdownChart from "@/components/page/analytics/charts/RevenueBreakdownChart";
 import CompletedOrdersTable from "@/components/page/analytics/CompletedOrdersTable";
+
+const SalesAnalyticsChart = dynamic(
+  () => import("@/components/page/analytics/charts/SalesAnalyticsChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm h-[380px] animate-pulse flex flex-col justify-between">
+        <div className="space-y-2">
+          <div className="h-4 w-28 bg-slate-100 rounded" />
+          <div className="h-8 w-44 bg-slate-100 rounded" />
+        </div>
+        <div className="h-48 w-full bg-slate-50 rounded-xl" />
+      </div>
+    ),
+  }
+);
+
+const UserDistributionChart = dynamic(
+  () => import("@/components/page/analytics/charts/UserDistributionChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm h-[380px] animate-pulse flex flex-col justify-between">
+        <div className="h-4 w-32 bg-slate-100 rounded" />
+        <div className="size-44 mx-auto rounded-full bg-slate-100" />
+        <div className="h-6 w-full bg-slate-50 rounded" />
+      </div>
+    ),
+  }
+);
+
+const LivePlatformMap = dynamic(
+  () => import("@/components/page/analytics/LivePlatformMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[480px] rounded-2xl bg-white border border-slate-100 animate-pulse flex items-center justify-center">
+        <span className="text-slate-400 text-sm font-medium">Loading live map...</span>
+      </div>
+    ),
+  }
+);
+
+const DeliveriesOverviewChart = dynamic(
+  () => import("@/components/page/analytics/charts/DeliveriesOverviewChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm h-[260px] animate-pulse flex flex-col justify-between">
+        <div className="h-4 w-36 bg-slate-100 rounded" />
+        <div className="size-36 mx-auto rounded-full bg-slate-100" />
+      </div>
+    ),
+  }
+);
+
+const RevenueBreakdownChart = dynamic(
+  () => import("@/components/page/analytics/charts/RevenueBreakdownChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm h-[260px] animate-pulse flex flex-col justify-between">
+        <div className="h-4 w-36 bg-slate-100 rounded" />
+        <div className="size-36 mx-auto rounded-full bg-slate-100" />
+      </div>
+    ),
+  }
+);
 import { DollarSign, Users, Bike, PackageCheck, Calendar, RefreshCw } from "lucide-react";
 import {
   Select,

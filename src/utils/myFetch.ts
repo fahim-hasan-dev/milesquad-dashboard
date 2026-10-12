@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use server";
-
-import { cookies } from "next/headers";
 import { config } from "@/config/env-config";
-import { getToken } from "./get-token";
+import { getCookie, deleteCookie } from "cookies-next";
 
 export interface FetchResponse {
   success: boolean;
@@ -41,9 +38,13 @@ export const myFetch = async (
     cache = "no-store",
   }: FetchOptions = {}
 ): Promise<FetchResponse> => {
-  const accessToken = token || (await getToken());
+  // Retrieve access token from parameter, cookies, or localStorage
+  const accessToken =
+    token ||
+    (getCookie("accessToken") as string) ||
+    (typeof window !== "undefined" ? localStorage.getItem("accessToken") || undefined : undefined);
 
-  const isFormData = body instanceof FormData;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const hasBody = body !== undefined && method !== "GET";
 
   const reqHeaders: Record<string, string> = {
@@ -60,15 +61,14 @@ export const myFetch = async (
       headers: reqHeaders,
       ...(hasBody && { body: isFormData ? body : JSON.stringify(body) }),
       ...(tags && { next: { tags } }),
-      ...(!(method === "GET") ? { cache: "no-store" } : { cache: cache }),
+      ...(!(method === "GET") ? { cache: "no-store" } : { cache }),
     });
 
     const data = await response.json();
 
     if (response.status === 401) {
-      try {
-        const cookieStore = await cookies();
-        const fcmToken = cookieStore.get("fcmToken")?.value;
+      if (typeof window !== "undefined") {
+        const fcmToken = getCookie("fcmToken") as string | undefined;
 
         if (fcmToken && accessToken) {
           try {
@@ -82,20 +82,21 @@ export const myFetch = async (
               body: JSON.stringify({ fcmToken }),
             });
           } catch {
-            // Ignore errors if token is already invalidated on backend
+            // Ignore error if token is already expired on backend
           }
         }
 
-        cookieStore.delete("accessToken");
-        cookieStore.delete("user");
-        cookieStore.delete("fcmToken");
-      } catch {
-        // Ignored if called in context where cookies cannot be mutated
-      }
+        deleteCookie("accessToken");
+        deleteCookie("user");
+        deleteCookie("fcmToken");
 
-      if (typeof window !== "undefined") {
-        document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        document.cookie = "user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        try {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("user");
+        } catch {
+          // Ignore localStorage exceptions
+        }
+
         if (window.location.pathname !== "/login") {
           window.location.href = "/login";
         }

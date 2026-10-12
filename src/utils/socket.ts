@@ -8,7 +8,7 @@ export const getTrackingSocket = (): Socket => {
   const token = (getCookie("accessToken") as string) || (typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : "");
   const serverUrl = (SERVER_URL || "http://localhost:5003").replace(/\/+$/, "");
 
-  if (!trackingSocket || !trackingSocket.connected) {
+  if (!trackingSocket) {
     trackingSocket = io(`${serverUrl}/tracking`, {
       transports: ["websocket", "polling"],
       auth: {
@@ -30,6 +30,8 @@ export const getTrackingSocket = (): Socket => {
     trackingSocket.on("connect_error", (err) => {
       console.warn("Tracking socket connection error:", err.message);
     });
+  } else if (trackingSocket.disconnected) {
+    trackingSocket.connect();
   }
 
   return trackingSocket;

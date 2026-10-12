@@ -28,11 +28,15 @@ import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
 import CopyButton from "@/components/common/CopyButton";
 import Pagination from "@/components/common/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
+import TableState from "@/components/common/TableState";
+import UserAvatar from "@/components/common/UserAvatar";
 
 export default function PartnersTable() {
   const [partners, setPartners] = useState<PartnerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 350);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -48,8 +52,8 @@ export default function PartnersTable() {
       const queryParams = new URLSearchParams();
       queryParams.set("page", currentPage.toString());
       queryParams.set("limit", "10");
-      if (searchTerm.trim()) {
-        queryParams.set("searchTerm", searchTerm.trim());
+      if (debouncedSearchTerm.trim()) {
+        queryParams.set("searchTerm", debouncedSearchTerm.trim());
       }
 
       const res = await myFetch(`/partner?${queryParams.toString()}`);
@@ -68,7 +72,7 @@ export default function PartnersTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm]);
+  }, [currentPage, debouncedSearchTerm]);
 
   useEffect(() => {
     fetchPartners();
@@ -164,16 +168,13 @@ export default function PartnersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="h-7 w-7 animate-spin text-[#10B981]" />
-                      <span className="text-xs font-medium">Loading partners from server...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : partners.length > 0 ? (
+              <TableState
+                loading={loading}
+                isEmpty={partners.length === 0}
+                colSpan={4}
+                loadingMessage="Loading partners from server..."
+              />
+              {!loading && partners.length > 0 &&
                 partners.map((row) => {
                   const initials = (row.fullName || "PA")
                     .split(" ")
@@ -195,9 +196,7 @@ export default function PartnersTable() {
                       {/* Partner Avatar + Name */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="size-10 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                            {initials}
-                          </div>
+                          <UserAvatar name={row.fullName} size="md" />
                           <div>
                             <h4 className="text-sm font-bold text-slate-900 leading-tight">
                               {row.fullName}
@@ -266,14 +265,7 @@ export default function PartnersTable() {
                       </td>
                     </tr>
                   );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={4} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    No partners found matching your search.
-                  </td>
-                </tr>
-              )}
+                })}
             </tbody>
           </table>
         </div>

@@ -1,59 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useParams } from "next/navigation";
 import {
   ArrowLeft,
-  Shield,
-  Calendar,
-  Clock,
-  User,
-  Mail,
-  Bike,
-  Phone,
-  CheckCircle2,
-  XCircle,
-  PauseCircle,
-  Star,
-  PackageCheck,
   Check,
   X,
   Loader2,
 } from "lucide-react";
-import SuspendUserModal from "@/components/modals/SuspendUserModal";
 import TrackDriverModal from "@/components/modals/TrackDriverModal";
 import RejectReasonModal from "@/components/modals/RejectReasonModal";
-import DeleteModal from "@/components/modals/DeleteModal";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
-import { SERVER_URL } from "@/config/env-config";
 import { getTrackingSocket } from "@/utils/socket";
-
-interface DriverDetailData {
-  id: string;
-  name: string;
-  email: string;
-  contact: string;
-  location: string;
-  role: string;
-  vehicle: string;
-  verification: string;
-  status: string;
-  avatar: string;
-  joinedDate: string;
-  nidFront: string | null;
-  nidBack: string | null;
-  drivingLicense: string | null;
-}
-
-function getImageUrl(path?: string | null): string {
-  if (!path) return "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return `${SERVER_URL || "http://localhost:5003"}${cleanPath}`;
-}
+import { getImageUrl } from "@/utils/imageUrl";
+import { DriverDetailData } from "@/components/page/riders/details/types";
+import RiderSummaryCard from "@/components/page/riders/details/RiderSummaryCard";
+import RiderPersonalInfoCard from "@/components/page/riders/details/RiderPersonalInfoCard";
+import RiderVerificationDocs from "@/components/page/riders/details/RiderVerificationDocs";
+import DocumentPreviewModal from "@/components/page/riders/details/DocumentPreviewModal";
 
 function RiderDetailsContent() {
   const searchParams = useSearchParams();
@@ -65,10 +31,12 @@ function RiderDetailsContent() {
 
   const [rider, setRider] = useState<DriverDetailData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
   const [isCheckingLiveLocation, setIsCheckingLiveLocation] = useState(false);
   const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const handleTrackDriverClick = () => {
     if (!rider?.id) return;
@@ -123,12 +91,22 @@ function RiderDetailsContent() {
       const res = await myFetch(`/user/${targetId}`);
       if (res.success && res.data) {
         const d = res.data;
+        const rawDocs = d.driverInfo?.vehicleDocuments;
+        const vehicleDocsList: string[] = Array.isArray(rawDocs)
+          ? rawDocs.filter(Boolean)
+          : typeof rawDocs === "string" && rawDocs.trim()
+          ? [rawDocs]
+          : [];
+
         setRider({
           id: d._id,
           name: d.fullName || d.name || "N/A",
           email: d.email || "N/A",
           contact: d.phone || "N/A",
-          location: d.location || d.address || "N/A",
+          location:
+            d.address ||
+            (Array.isArray(d.location) ? d.location.join(", ") : d.location) ||
+            "N/A",
           role: "Driver",
           vehicle: d.driverInfo?.vehicleType || "Motorcycle / Van",
           verification: (d.driverInfo?.profileVerification || "pending").toLowerCase(),
@@ -149,6 +127,13 @@ function RiderDetailsContent() {
           nidFront: d.driverInfo?.nidFront || null,
           nidBack: d.driverInfo?.nidBack || null,
           drivingLicense: d.driverInfo?.drivingLicense || null,
+          criminalReport: d.driverInfo?.criminalReport || null,
+          vehicleInsurance: d.driverInfo?.vehicleInsurance || null,
+          vehicleDocuments: vehicleDocsList,
+          rejectReason: d.driverInfo?.rejectReason || null,
+          totalRating: d.driverInfo?.totalRating ?? 0,
+          averageRating: d.driverInfo?.averageRating ?? 0,
+          wallet: d.driverInfo?.wallet ?? 0,
         });
       } else {
         toast.error(res.message || "Failed to load driver details");
@@ -188,9 +173,6 @@ function RiderDetailsContent() {
     }
   };
 
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
-
   const handleConfirmRejectDriver = async (reason: string) => {
     if (!targetId) return;
     setIsRejecting(true);
@@ -216,44 +198,6 @@ function RiderDetailsContent() {
       toast.error("Error rejecting driver", { id: "reject-driver" });
     } finally {
       setIsRejecting(false);
-    }
-  };
-
-  const handleTrackUser = () => {
-    setIsTrackModalOpen(true);
-  };
-
-  const renderStatusBadge = (status: string) => {
-    switch (status) {
-      case "Active":
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3.5 py-1 rounded-full border border-emerald-200/60">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Active</span>
-          </span>
-        );
-      case "Suspended":
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3.5 py-1 rounded-full border border-amber-200/60">
-            <XCircle className="h-3.5 w-3.5" />
-            <span>Suspended</span>
-          </span>
-        );
-      case "Pending":
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-semibold px-3.5 py-1 rounded-full border border-blue-200/60">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Pending</span>
-          </span>
-        );
-      case "Inactive":
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 text-xs font-semibold px-3.5 py-1 rounded-full border border-slate-200/60">
-            <PauseCircle className="h-3.5 w-3.5" />
-            <span>Inactive</span>
-          </span>
-        );
     }
   };
 
@@ -341,184 +285,21 @@ function RiderDetailsContent() {
 
       {/* Row 1: Profile Summary & Personal Info */}
       <div className="flex flex-col lg:flex-row items-stretch gap-6">
-        {/* Left Card: Summary Card */}
-        <div className="w-full lg:w-[360px] shrink-0 bg-white rounded-2xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          {/* Avatar Picture */}
-          <div className="relative mb-3">
-            {rider.avatar ? (
-              <Image
-                src={rider.avatar}
-                alt={rider.name}
-                width={100}
-                height={100}
-                className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm"
-              />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-[#10B981] text-white font-black flex items-center justify-center text-2xl shadow-sm border-4 border-slate-50">
-                {(rider.name || "R").charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
-
-          {/* User Name & ID */}
-          <h2 className="text-xl font-bold text-[#18181B] tracking-tight">
-            {rider.name}
-          </h2>
-          <span className="text-xs font-medium text-slate-400 mt-0.5 mb-3 block">
-            #{rider.id}
-          </span>
-
-          {/* Status & Driver Badge */}
-          <div className="flex items-center gap-2 mb-2">
-            {renderStatusBadge(
-              rider.verification === "approved" || rider.verification === "APPROVED"
-                ? "Active"
-                : rider.verification === "rejected" || rider.verification === "REJECTED"
-                ? "Suspended"
-                : "Pending"
-            )}
-            <span className="inline-block bg-[#FFF7ED] text-[#EA580C] text-xs font-bold px-3 py-1 rounded-full border border-amber-200/50">
-              {rider.vehicle}
-            </span>
-          </div>
-
-          {/* Divider */}
-          <div className="w-full border-t border-slate-100 my-5" />
-
-          {/* Metadata Rows */}
-          <div className="w-full space-y-4 text-left">
-            <div className="flex items-start gap-3.5">
-              <Shield className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="block text-xs font-semibold text-slate-400">Role</span>
-                <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {rider.role}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5">
-              <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="block text-xs font-semibold text-slate-400">
-                  {isPending ? "Date Applied" : "Joined"}
-                </span>
-                <span className="block text-sm font-bold text-[#18181B] mt-0.5">
-                  {rider.joinedDate}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Card: Personal Information */}
-        <div className="flex-1 bg-white rounded-2xl p-8 md:p-10 border border-slate-100 shadow-sm flex flex-col justify-start">
-          <h3 className="text-lg md:text-xl font-bold text-[#18181B] mb-6">
-            Personal Information & Vehicle Specs
-          </h3>
-
-          <div className="flex items-center gap-4">
-            {rider.avatar ? (
-              <Image
-                src={rider.avatar}
-                alt="Profile Picture"
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-full object-cover border border-slate-100 shadow-sm"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-[#10B981] text-white font-bold flex items-center justify-center text-xl shadow-sm border border-slate-100">
-                {(rider.name || "R").charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div>
-              <h4 className="text-sm md:text-base font-bold text-[#18181B]">
-                Profile Picture
-              </h4>
-              <p className="text-xs text-slate-400 font-normal mt-0.5">
-                Driver&apos;s photo application
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full border-t border-slate-100 my-6" />
-
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <User className="h-4 w-4 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-6 text-sm">
-                <span className="w-32 md:w-44 font-medium text-slate-500">Full Name</span>
-                <span className="font-bold text-[#18181B]">{rider.name}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-6 text-sm">
-                <span className="w-32 md:w-44 font-medium text-slate-500">Email</span>
-                <span className="font-bold text-[#18181B]">{rider.email}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Phone className="h-4 w-4 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-6 text-sm">
-                <span className="w-32 md:w-44 font-medium text-slate-500">Phone Number</span>
-                <span className="font-bold text-[#18181B]">{rider.contact}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Bike className="h-4 w-4 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-6 text-sm">
-                <span className="w-32 md:w-44 font-medium text-slate-500">Vehicle Type</span>
-                <span className="font-bold text-[#18181B]">{rider.vehicle}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RiderSummaryCard rider={rider} isPending={isPending} />
+        <RiderPersonalInfoCard rider={rider} />
       </div>
 
-      {/* Row 2: Document Scans Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-        {/* National ID Card */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-bold text-slate-800 px-1">National ID Card</h4>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4">
-            <div className="relative flex-1 h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-              <Image
-                src={getImageUrl(rider.nidFront)}
-                alt="ID Card Front"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="relative flex-1 h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-              <Image
-                src={getImageUrl(rider.nidBack)}
-                alt="ID Card Back"
-                fill
-                className="object-cover"
-              />
-            </div>
-          </div>
-        </div>
+      {/* Row 2: Document Scans & Verification Documents */}
+      <RiderVerificationDocs
+        rider={rider}
+        onPreview={(doc) => setPreviewDoc(doc)}
+      />
 
-        {/* Driving License */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-bold text-slate-800 px-1">Driving License</h4>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-              <Image
-                src={getImageUrl(rider.drivingLicense)}
-                alt="Driving License"
-                fill
-                className="object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Full-Screen Document Preview Modal */}
+      <DocumentPreviewModal
+        previewDoc={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+      />
 
       {/* Track Driver Live Google Map Modal */}
       {isTrackModalOpen && liveCoords && (

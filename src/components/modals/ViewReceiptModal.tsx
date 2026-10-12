@@ -2,9 +2,6 @@
 
 import React from "react";
 import {
-  CheckCircle2,
-  Clock,
-  XCircle,
   Download,
   Building2,
   User,
@@ -19,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import StatusBadge from "@/components/common/StatusBadge";
 
 interface ViewReceiptModalProps {
   isOpen: boolean;
@@ -45,31 +43,6 @@ export default function ViewReceiptModal({
     toast.success(`Receipt for ${data.id} downloaded!`);
   };
 
-  const renderStatusBadge = (status: string) => {
-    if (status === "Completed") {
-      return (
-        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          <span>Completed</span>
-        </span>
-      );
-    }
-    if (status === "Pending" || status === "Processing") {
-      return (
-        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
-          <Clock className="h-3.5 w-3.5" />
-          <span>{status}</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
-        <XCircle className="h-3.5 w-3.5" />
-        <span>Failed</span>
-      </span>
-    );
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl flex flex-col gap-6">
@@ -89,7 +62,7 @@ export default function ViewReceiptModal({
             TOTAL AMOUNT
           </span>
           <h2 className="text-2xl font-black text-slate-900">{data.amount}</h2>
-          <div className="pt-1 flex justify-center">{renderStatusBadge(data.status)}</div>
+          <div className="pt-1 flex justify-center"><StatusBadge status={data.status} /></div>
         </div>
 
         {/* Receipt Details Grid */}

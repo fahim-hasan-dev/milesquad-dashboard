@@ -1,15 +1,27 @@
-import dotenv from "dotenv";
+if (typeof window === "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require("dotenv").config();
+  } catch {
+    // Ignore in non-node environments
+  }
+}
 
-// Load environment variables from .env.local file
-dotenv.config();
+const serverURL =
+  process.env.NEXT_PUBLIC_SERVER_URL ||
+  process.env.SERVER_URL ||
+  "https://api.milesquad.com";
 
-const rawBaseURL = process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5003/api/v1";
+const rawBaseURL =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.BASE_URL ||
+  (serverURL ? `${serverURL.replace(/\/+$/, "")}/api/v1` : "https://api.milesquad.com/api/v1");
+
 const baseURL = rawBaseURL.endsWith("/api/v1")
   ? rawBaseURL
   : `${rawBaseURL.replace(/\/+$/, "")}/api/v1`;
 
-const serverURL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5003";
-const mapApiKey = process.env.NEXT_PUBLIC_MAP_API_KEY || process.env.MAP_API_KEY;
+const mapApiKey = process.env.NEXT_PUBLIC_MAP_API_KEY || process.env.MAP_API_KEY || "";
 
 export const config = {
   serverURL,

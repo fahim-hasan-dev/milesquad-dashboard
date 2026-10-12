@@ -28,6 +28,10 @@ import toast from "react-hot-toast";
 import Pagination from "@/components/common/Pagination";
 import { myFetch } from "@/utils/myFetch";
 import { getImageUrl } from "@/utils/imageUrl";
+import { useDebounce } from "@/hooks/useDebounce";
+import StatusBadge from "@/components/common/StatusBadge";
+import TableState from "@/components/common/TableState";
+import UserAvatar from "@/components/common/UserAvatar";
 import {
   masterSupportTicketsList,
   SupportTicketRecord,
@@ -42,6 +46,7 @@ export default function SupportTable() {
   const [requests, setRequests] = useState<ExtendedSupportTicketRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 350);
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -54,8 +59,8 @@ export default function SupportTable() {
     queryParams.set("limit", "10");
     queryParams.set("sort", "-createdAt");
 
-    if (searchTerm.trim()) {
-      queryParams.set("searchTerm", searchTerm.trim());
+    if (debouncedSearchTerm.trim()) {
+      queryParams.set("searchTerm", debouncedSearchTerm.trim());
     }
 
     if (statusFilter !== "All") {
@@ -119,7 +124,7 @@ export default function SupportTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, debouncedSearchTerm, statusFilter]);
 
   useEffect(() => {
     fetchTickets();
@@ -204,34 +209,19 @@ export default function SupportTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
-                      <span>Loading support tickets...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : requests.length > 0 ? (
+              <TableState
+                loading={loading}
+                isEmpty={requests.length === 0}
+                colSpan={5}
+                loadingMessage="Loading support tickets..."
+              />
+              {!loading && requests.length > 0 &&
                 requests.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* USER */}
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        {row.userAvatar ? (
-                          <Image
-                            src={row.userAvatar}
-                            alt={row.userName}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 border border-slate-200/60">
-                            <User className="h-5 w-5" />
-                          </div>
-                        )}
+                        <UserAvatar src={row.userAvatar} name={row.userName} size="lg" shape="rounded" />
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 leading-tight">
                             {row.userName}
@@ -258,17 +248,7 @@ export default function SupportTable() {
 
                     {/* STATUS */}
                     <td className="py-4 px-4">
-                      {row.status === "Solved" ? (
-                        <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3.5 py-1 rounded-full border border-emerald-200">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Solved</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3.5 py-1 rounded-full border border-amber-200">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span>Pending</span>
-                        </span>
-                      )}
+                      <StatusBadge status={row.status === "Solved" ? "completed" : "pending"} />
                     </td>
 
                     {/* ACTIONS */}
@@ -296,14 +276,7 @@ export default function SupportTable() {
                       </DropdownMenu>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium text-sm">
-                    No support tickets found matching your search.
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>

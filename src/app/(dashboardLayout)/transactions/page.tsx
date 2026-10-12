@@ -1,29 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import {
   ArrowLeftRight,
   Search,
   ChevronDown,
   Download,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
   CreditCard,
-  Smartphone,
-  Building,
-  Banknote,
-  MoreHorizontal,
   ArrowUpRight,
-  User,
-  Building2,
-  FileText,
-  Loader2,
-  Check,
-  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,41 +17,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ViewReceiptModal from "@/components/modals/ViewReceiptModal";
 import ExportDataModal from "@/components/modals/ExportDataModal";
-import { BASE_URL } from "@/config/env-config";
 import RejectReasonModal from "@/components/modals/RejectReasonModal";
 import Pagination from "@/components/common/Pagination";
-import CopyButton from "@/components/common/CopyButton";
 import toast from "react-hot-toast";
 import { myFetch } from "@/utils/myFetch";
+import { BASE_URL } from "@/config/env-config";
 import { getImageUrl } from "@/utils/imageUrl";
-
-interface TransactionItem {
-  id: string;
-  transactionId: string;
-  user: {
-    id: string;
-    userId?: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    avatar: string;
-  };
-  parcel?: {
-    id: string;
-    parcelId: string;
-    goodType: string;
-    totalDeliveryFee: number;
-  };
-  amount: number;
-  type: string;
-  status: string;
-  paymentMethod: string;
-  accountDetails: string;
-  description: string;
-  rejectReason?: string;
-  date: string;
-}
+import { TransactionItem } from "@/components/page/transactions/types";
+import TransactionStatsCards from "@/components/page/transactions/TransactionStatsCards";
+import PaymentsTable from "@/components/page/transactions/PaymentsTable";
+import PayoutsTable from "@/components/page/transactions/PayoutsTable";
 
 export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<"transactions" | "payouts">("transactions");
@@ -125,10 +84,16 @@ export default function TransactionsPage() {
         .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
       const pendingPay = payments.filter((p: any) => p.status === "pending").length;
-      const procPayout = payouts.filter((p: any) => p.status === "pending" || p.status === "processing").length;
+      const procPayout = payouts.filter(
+        (p: any) => p.status === "pending" || p.status === "processing"
+      ).length;
 
-      const failedPay = payments.filter((p: any) => p.status === "failed" || p.status === "cancelled").length;
-      const failedPayout = payouts.filter((p: any) => p.status === "failed" || p.status === "rejected").length;
+      const failedPay = payments.filter(
+        (p: any) => p.status === "failed" || p.status === "cancelled"
+      ).length;
+      const failedPayout = payouts.filter(
+        (p: any) => p.status === "failed" || p.status === "rejected"
+      ).length;
 
       setStats({
         totalRevenue: totalRev,
@@ -187,7 +152,12 @@ export default function TransactionsPage() {
                   id: parcelData._id,
                   parcelId: parcelData.parcelId || parcelData._id,
                   goodType: parcelData.goodType || "Parcel",
-                  totalDeliveryFee: parcelData.deliveryFee || parcelData.totalDeliveryFee || parcelData.totalToPay || t.amount || 0,
+                  totalDeliveryFee:
+                    parcelData.deliveryFee ||
+                    parcelData.totalDeliveryFee ||
+                    parcelData.totalToPay ||
+                    t.amount ||
+                    0,
                 }
               : undefined,
             amount: t.amount || 0,
@@ -245,7 +215,9 @@ export default function TransactionsPage() {
         fetchTransactions();
         fetchStats();
       } else {
-        toast.error(res.message || res.error || "Failed to approve payout", { id: "payout-status" });
+        toast.error(res.message || res.error || "Failed to approve payout", {
+          id: "payout-status",
+        });
       }
     } catch {
       toast.error("Error updating payout status", { id: "payout-status" });
@@ -270,21 +242,15 @@ export default function TransactionsPage() {
         fetchTransactions();
         fetchStats();
       } else {
-        toast.error(res.message || res.error || "Failed to reject payout", { id: "payout-status" });
+        toast.error(res.message || res.error || "Failed to reject payout", {
+          id: "payout-status",
+        });
       }
     } catch {
       toast.error("Error rejecting payout request", { id: "payout-status" });
     } finally {
       setIsRejecting(false);
     }
-  };
-
-  const getMethodIcon = (method: string) => {
-    const m = (method || "").toLowerCase();
-    if (m.includes("mobile") || m.includes("momo") || m.includes("wave")) return Smartphone;
-    if (m.includes("bank") || m.includes("transfer")) return Building;
-    if (m.includes("card") || m.includes("stripe")) return CreditCard;
-    return Banknote;
   };
 
   const handleOpenReceipt = (t: TransactionItem) => {
@@ -294,7 +260,12 @@ export default function TransactionsPage() {
       type: t.user.role === "driver" ? "Rider" : "Customer",
       amount: `${t.amount.toFixed(2)} XOF`,
       method: t.paymentMethod,
-      status: t.status === "completed" ? "Completed" : t.status === "pending" ? "Pending" : "Failed",
+      status:
+        t.status === "completed"
+          ? "Completed"
+          : t.status === "pending"
+          ? "Pending"
+          : "Failed",
       date: t.date,
     });
     setIsReceiptModalOpen(true);
@@ -321,12 +292,15 @@ export default function TransactionsPage() {
       if (exportParams.endDate) queryParams.set("endDate", exportParams.endDate);
       if (exportParams.filter) queryParams.set("filter", exportParams.filter);
 
-      const response = await fetch(`${BASE_URL}/transaction/export?${queryParams.toString()}`, {
-        method: "GET",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-      });
+      const response = await fetch(
+        `${BASE_URL}/transaction/export?${queryParams.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to export ${label} data`);
@@ -343,9 +317,10 @@ export default function TransactionsPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success(`${isPayout ? "Payouts" : "Transactions"} data exported successfully!`, {
-        id: "export-transactions",
-      });
+      toast.success(
+        `${isPayout ? "Payouts" : "Transactions"} data exported successfully!`,
+        { id: "export-transactions" }
+      );
     } catch (err: any) {
       console.error("Export error:", err);
       toast.error(err?.message || "Failed to export data", { id: "export-transactions" });
@@ -405,70 +380,10 @@ export default function TransactionsPage() {
       </div>
 
       {/* 3 Dynamic Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {/* Card 1: Total Revenue / Total Disbursed */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              {activeTab === "transactions" ? "Total Revenue" : "Total Disbursed"}
-            </span>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions"
-                ? `${stats.totalRevenue.toLocaleString()} XOF`
-                : `${stats.totalDisbursed.toLocaleString()} XOF`}
-            </h2>
-            <span className="text-xs text-slate-400 font-medium block">
-              {activeTab === "transactions" ? "Completed transactions" : "Completed payouts"}
-            </span>
-          </div>
-          <span className="inline-flex items-center gap-1 bg-[#E6F4EA] text-[#10B981] text-xs font-bold px-2.5 py-1 rounded-full">
-            <TrendingUp className="h-3 w-3" />
-            <span>Real-time</span>
-          </span>
-        </div>
-
-        {/* Card 2: Pending / Processing */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              {activeTab === "transactions" ? "Pending Payments" : "Processing Payouts"}
-            </span>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions" ? stats.pendingPaymentsCount : stats.processingPayoutsCount}
-            </h2>
-            <span className="text-xs text-slate-400 font-medium block">
-              Awaiting confirmation
-            </span>
-          </div>
-          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 text-xs font-bold px-2.5 py-1 rounded-full">
-            <Clock className="h-3 w-3" />
-            <span>Active requests</span>
-          </span>
-        </div>
-
-        {/* Card 3: Failed */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-start justify-between">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Failed / Rejected
-            </span>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-              {activeTab === "transactions" ? stats.failedPaymentsCount : stats.failedPayoutsCount}
-            </h2>
-            <span className="text-xs text-slate-400 font-medium block">
-              Unsuccessful records
-            </span>
-          </div>
-          <span className="inline-flex items-center gap-1 bg-red-50 text-red-500 text-xs font-bold px-2.5 py-1 rounded-full">
-            <TrendingDown className="h-3 w-3" />
-            <span>Needs attention</span>
-          </span>
-        </div>
-      </div>
+      <TransactionStatsCards activeTab={activeTab} stats={stats} />
 
       {/* Search Bar & Export Button */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search & Filter Group */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-80">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -494,23 +409,46 @@ export default function TransactionsPage() {
               <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem onClick={() => { setStatusFilter("All"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("All");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
                 All
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatusFilter("Completed"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Completed");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
                 Completed
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatusFilter("Pending"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Pending");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
                 Pending
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatusFilter("Failed"); setCurrentPage(1); }} className="text-xs font-semibold cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("Failed");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold cursor-pointer"
+              >
                 Failed
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Export Button */}
         <button
           onClick={() => setIsExportModalOpen(true)}
           className="flex items-center gap-2 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs md:text-sm px-5 py-2.5 rounded-xl transition-all shadow-none cursor-pointer self-end sm:self-auto"
@@ -524,271 +462,19 @@ export default function TransactionsPage() {
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
         <div className="w-full overflow-x-auto">
           {activeTab === "transactions" ? (
-            /* Payment Transactions Table */
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="py-4 px-4">TRANSACTION ID</th>
-                  <th className="py-4 px-4">CUSTOMER</th>
-                  <th className="py-4 px-4">AMOUNT</th>
-                  <th className="py-4 px-4">METHOD</th>
-                  <th className="py-4 px-4">STATUS</th>
-                  <th className="py-4 px-4">DATE</th>
-                  <th className="py-4 px-4 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
-                        <span>Loading payment transactions...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : transactions.length > 0 ? (
-                  transactions.map((row) => {
-                    const MethodIcon = getMethodIcon(row.paymentMethod);
-
-                    return (
-                      <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#10B981]">
-                            <span>#{row.transactionId}</span>
-                            <CopyButton text={row.transactionId} label="Transaction ID" />
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            {row.user.avatar ? (
-                              <Image
-                                src={row.user.avatar}
-                                alt={row.user.name}
-                                width={36}
-                                height={36}
-                                className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                                {(row.user.name || "C").charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <span className="text-xs md:text-sm font-bold text-slate-900 block leading-tight">
-                                {row.user.name}
-                              </span>
-                              <span className="text-[11px] text-slate-400 font-medium">
-                                #{row.user.userId || row.user.id.slice(-6)}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-xs md:text-sm font-bold text-slate-900">
-                          ${row.amount.toFixed(2)} XOF
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1.5 bg-slate-100/80 text-slate-600 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/50">
-                            <MethodIcon className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{row.paymentMethod}</span>
-                          </span>
-                        </td>
-                        <td className="py-4 px-4">
-                          {row.status === "completed" ? (
-                            <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Completed</span>
-                            </span>
-                          ) : row.status === "pending" ? (
-                            <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>Pending</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-xs font-semibold px-3 py-1 rounded-full">
-                              <XCircle className="h-3.5 w-3.5" />
-                              <span>Failed</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-xs font-medium text-slate-500">
-                          {row.date}
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                              <MoreHorizontal className="h-5 w-5" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-xl shadow-lg border border-slate-100">
-                              <DropdownMenuItem
-                                onClick={() => handleOpenReceipt(row)}
-                                className="flex items-center gap-2 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
-                              >
-                                <FileText className="h-4 w-4 text-slate-400" />
-                                <span>View Receipt</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      No payment transactions found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <PaymentsTable
+              transactions={transactions}
+              loading={loading}
+              onOpenReceipt={handleOpenReceipt}
+            />
           ) : (
-            /* Payouts Table */
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="py-4 px-4">PAYOUT ID</th>
-                  <th className="py-4 px-4">RECIPIENT</th>
-                  <th className="py-4 px-4">ROLE</th>
-                  <th className="py-4 px-4">AMOUNT</th>
-                  <th className="py-4 px-4">ACCOUNT DETAILS</th>
-                  <th className="py-4 px-4">STATUS</th>
-                  <th className="py-4 px-4">DATE</th>
-                  <th className="py-4 px-4 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
-                        <span>Loading payout records...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : transactions.length > 0 ? (
-                  transactions.map((row) => {
-                    const isDriver = row.user.role === "driver";
-
-                    return (
-                      <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#10B981]">
-                            <span>#{row.transactionId}</span>
-                            <CopyButton text={row.transactionId} label="Payout ID" />
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            {row.user.avatar ? (
-                              <Image
-                                src={row.user.avatar}
-                                alt={row.user.name}
-                                width={36}
-                                height={36}
-                                className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-[#10B981] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                                {(row.user.name || "D").charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <span className="text-xs md:text-sm font-bold text-slate-900 block leading-tight">
-                                {row.user.name}
-                              </span>
-                              <span className="text-[11px] text-slate-400 font-medium">
-                                #{row.user.userId || row.user.id.slice(-6)}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
-                            {isDriver ? (
-                              <User className="h-3 w-3 text-slate-400" />
-                            ) : (
-                              <Building2 className="h-3 w-3 text-slate-400" />
-                            )}
-                            <span>{row.user.role || "Driver"}</span>
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-xs md:text-sm font-bold text-slate-900">
-                          ${row.amount.toFixed(2)} XOF
-                        </td>
-                        <td className="py-4 px-4 text-xs font-medium text-slate-600 max-w-[180px] truncate">
-                          {row.accountDetails || "N/A"}
-                        </td>
-                        <td className="py-4 px-4">
-                          {row.status === "completed" ? (
-                            <span className="inline-flex items-center gap-1.5 bg-[#E6F4EA] text-[#10B981] text-xs font-semibold px-3 py-1 rounded-full">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Completed</span>
-                            </span>
-                          ) : row.status === "pending" || row.status === "processing" ? (
-                            <span className="inline-flex items-center gap-1.5 bg-[#FEF3C7] text-[#D97706] text-xs font-semibold px-3 py-1 rounded-full">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>Pending</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-500 text-xs font-semibold px-3 py-1 rounded-full">
-                              <XCircle className="h-3.5 w-3.5" />
-                              <span>Rejected</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-xs font-medium text-slate-500">
-                          {row.date}
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                              <MoreHorizontal className="h-5 w-5" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl shadow-lg border border-slate-100 space-y-1">
-                              <DropdownMenuItem
-                                onClick={() => handleOpenReceipt(row)}
-                                className="flex items-center gap-2 text-xs font-semibold text-slate-700 py-2 cursor-pointer"
-                              >
-                                <FileText className="h-4 w-4 text-slate-400" />
-                                <span>View Receipt</span>
-                              </DropdownMenuItem>
-
-                              {(row.status === "pending" || row.status === "processing") && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => handleApprovePayout(row.id)}
-                                    className="flex items-center gap-2 text-xs font-semibold text-[#10B981] py-2 cursor-pointer"
-                                  >
-                                    <Check className="h-4 w-4 text-[#10B981]" />
-                                    <span>Approve Payout</span>
-                                  </DropdownMenuItem>
-
-                                  <DropdownMenuItem
-                                    onClick={() => setRejectPayoutItem(row)}
-                                    className="flex items-center gap-2 text-xs font-semibold text-red-500 py-2 cursor-pointer"
-                                  >
-                                    <X className="h-4 w-4 text-red-500" />
-                                    <span>Reject Payout</span>
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 font-medium text-sm">
-                      No payout records found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <PayoutsTable
+              transactions={transactions}
+              loading={loading}
+              onOpenReceipt={handleOpenReceipt}
+              onApprovePayout={handleApprovePayout}
+              onRejectPayout={(item) => setRejectPayoutItem(item)}
+            />
           )}
         </div>
       </div>
@@ -812,12 +498,21 @@ export default function TransactionsPage() {
       <ExportDataModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        title={activeTab === "transactions" ? "Download Transactions Data" : "Download Payouts Data"}
-        filterLabel={activeTab === "transactions" ? "Payment Status" : "Payout Status"}
+        title={
+          activeTab === "transactions"
+            ? "Download Transactions Data"
+            : "Download Payouts Data"
+        }
+        filterLabel={
+          activeTab === "transactions" ? "Payment Status" : "Payout Status"
+        }
         filterOptions={[
           { label: "All Statuses", value: "ALL" },
           { label: "Completed", value: "Completed" },
-          { label: activeTab === "transactions" ? "Pending" : "Processing", value: activeTab === "transactions" ? "Pending" : "Processing" },
+          {
+            label: activeTab === "transactions" ? "Pending" : "Processing",
+            value: activeTab === "transactions" ? "Pending" : "Processing",
+          },
           { label: "Failed", value: "Failed" },
         ]}
         onDownload={handleExportTransactions}

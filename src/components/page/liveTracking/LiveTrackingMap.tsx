@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { Star, X, Search, Phone, Radio } from "lucide-react";
 import { getImageUrl } from "@/utils/imageUrl";
 import { getTrackingSocket } from "@/utils/socket";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface LiveDriverInfo {
   driverId: string;
@@ -37,6 +38,7 @@ export default function LiveTrackingMap({ heightClass = "h-[620px]" }: LiveTrack
   const [selectedDriver, setSelectedDriver] = useState<LiveDriverInfo | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 350);
 
   const formatSocketDriver = (data: any, idx: number): LiveDriverInfo => {
     const bgColors = [
@@ -137,20 +139,20 @@ export default function LiveTrackingMap({ heightClass = "h-[620px]" }: LiveTrack
 
   // Filter Online Drivers by Search Term
   const filteredDrivers = useMemo(() => {
-    if (!searchTerm.trim()) return onlineDrivers;
-    const term = searchTerm.toLowerCase().trim();
+    if (!debouncedSearchTerm.trim()) return onlineDrivers;
+    const term = debouncedSearchTerm.toLowerCase().trim();
     return onlineDrivers.filter(
       (d) =>
         d.fullName.toLowerCase().includes(term) ||
         d.phone.toLowerCase().includes(term) ||
         d.customId.toLowerCase().includes(term)
     );
-  }, [onlineDrivers, searchTerm]);
+  }, [onlineDrivers, debouncedSearchTerm]);
 
   // 2. Auto-fly to searched driver when typing in search box
   useEffect(() => {
-    if (!searchTerm.trim() || !leafletInstance.current || onlineDrivers.length === 0) return;
-    const term = searchTerm.toLowerCase().trim();
+    if (!debouncedSearchTerm.trim() || !leafletInstance.current || onlineDrivers.length === 0) return;
+    const term = debouncedSearchTerm.toLowerCase().trim();
     const match = onlineDrivers.find(
       (d) =>
         d.customId.toLowerCase().includes(term) ||
@@ -163,7 +165,7 @@ export default function LiveTrackingMap({ heightClass = "h-[620px]" }: LiveTrack
       const map = leafletInstance.current;
       map.flyTo([match.lat, match.lng], 16, { duration: 1.2 });
     }
-  }, [searchTerm, onlineDrivers]);
+  }, [debouncedSearchTerm, onlineDrivers]);
 
   // 3. Leaflet Map Initialization with Sleek Compact 28px Pin Markers
   useEffect(() => {
