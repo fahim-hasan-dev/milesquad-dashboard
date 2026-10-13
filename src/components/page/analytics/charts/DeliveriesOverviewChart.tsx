@@ -4,10 +4,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const defaultDeliveriesData = [
-  { name: "Completed", value: 3420, percentage: "89.1%", fill: "#10B981" },
-  { name: "In Progress", value: 192, percentage: "5.0%", fill: "#3B82F6" },
-  { name: "Cancelled", value: 138, percentage: "3.6%", fill: "#EF4444" },
-  { name: "Failed", value: 90, percentage: "2.3%", fill: "#F59E0B" },
+  { name: "Completed", value: 0, percentage: "0%", fill: "#10B981" },
+  { name: "In Progress", value: 0, percentage: "0%", fill: "#3B82F6" },
+  { name: "Cancelled", value: 0, percentage: "0%", fill: "#EF4444" },
+  { name: "Failed", value: 0, percentage: "0%", fill: "#F59E0B" },
 ];
 
 const chartConfig = {
@@ -17,13 +17,21 @@ const chartConfig = {
   failed: { label: "Failed", color: "#F59E0B" },
 };
 
+interface DeliveryItem {
+  name: string;
+  value: number;
+  percentage?: string;
+  fill?: string;
+  color?: string;
+}
+
 interface DeliveriesOverviewChartProps {
   total?: number;
-  data?: { name: string; value: number; percentage: string; fill: string }[];
+  data?: DeliveryItem[];
 }
 
 export default function DeliveriesOverviewChart({
-  total = 3840,
+  total = 0,
   data = defaultDeliveriesData,
 }: DeliveriesOverviewChartProps) {
   return (
@@ -49,7 +57,7 @@ export default function DeliveriesOverviewChart({
                 >
                   {data.map((entry, index) => {
                   const defaultColors = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B"];
-                  const color = entry.fill || (entry as any).color || defaultColors[index % defaultColors.length];
+                  const color = entry.fill || entry.color || defaultColors[index % defaultColors.length];
                   return <Cell key={`cell-${index}`} fill={color} />;
                 })}
               </Pie>
@@ -70,7 +78,7 @@ export default function DeliveriesOverviewChart({
         <div className="space-y-3">
           {data.map((item, idx) => {
             const defaultColors = ["#10B981", "#0284C7", "#F59E0B", "#EF4444"];
-            const itemColor = item.fill || (item as any).color || defaultColors[idx % defaultColors.length];
+            const itemColor = item.fill || item.color || defaultColors[idx % defaultColors.length];
             const pct = item.percentage || (total > 0 ? `${((item.value / total) * 100).toFixed(1)}%` : "0%");
             return (
               <div key={item.name} className="flex items-center gap-3">

@@ -4,10 +4,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const defaultRevenueData = [
-  { name: "Delivery Fees", value: 27125.4, percentage: "63.6%", formatted: "$27,125.40", fill: "#6366F1" },
-  { name: "Service Fees", value: 8956.5, percentage: "21.0%", formatted: "$8,956.50", fill: "#1E40AF" },
-  { name: "Surge Fees", value: 4265.0, percentage: "10.0%", formatted: "$4,265.00", fill: "#F59E0B" },
-  { name: "Other Fees", value: 2303.1, percentage: "5.4%", formatted: "$2,303.10", fill: "#10B981" },
+  { name: "Delivery Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#6366F1" },
+  { name: "Service Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#1E40AF" },
+  { name: "Surge Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#F59E0B" },
+  { name: "Other Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#10B981" },
 ];
 
 const chartConfig = {
@@ -23,7 +23,7 @@ interface RevenueBreakdownChartProps {
 }
 
 export default function RevenueBreakdownChart({
-  total = "$42,650.00",
+  total = "0 XOF",
   data = defaultRevenueData,
 }: RevenueBreakdownChartProps) {
   return (

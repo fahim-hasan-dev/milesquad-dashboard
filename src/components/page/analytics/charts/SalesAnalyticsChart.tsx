@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/select";
 
 const defaultSalesData = [
-  { month: "Jan", revenue: 4200, fill: "#F1F5F9" },
-  { month: "Feb", revenue: 7700, fill: "#F1F5F9" },
-  { month: "Mar", revenue: 4900, fill: "#F1F5F9" },
-  { month: "Apr", revenue: 9800, fill: "#F1F5F9" },
-  { month: "May", revenue: 14000, fill: "#10B981" },
-  { month: "Jun", revenue: 6050, fill: "#F1F5F9" },
+  { month: "Jan", revenue: 0, fill: "#F1F5F9" },
+  { month: "Feb", revenue: 0, fill: "#F1F5F9" },
+  { month: "Mar", revenue: 0, fill: "#F1F5F9" },
+  { month: "Apr", revenue: 0, fill: "#F1F5F9" },
+  { month: "May", revenue: 0, fill: "#10B981" },
+  { month: "Jun", revenue: 0, fill: "#F1F5F9" },
 ];
 
 const chartConfig = {
@@ -35,7 +35,7 @@ interface SalesAnalyticsChartProps {
 }
 
 export default function SalesAnalyticsChart({
-  totalRevenue = "$46,650",
+  totalRevenue = "0 XOF",
   chartData = defaultSalesData,
   period = "Jan - Jun",
   onPeriodChange,

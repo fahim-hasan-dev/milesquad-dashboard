@@ -81,7 +81,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { overviewDataByYearAndPeriod } from "@/data/overviewData";
 import { myFetch } from "@/utils/myFetch";
 
 export default function OverviewPage() {
@@ -108,64 +107,91 @@ export default function OverviewPage() {
     fetchOverviewStats();
   }, [selectedYear]);
 
-  // Fallback to static format if loading or missing
-  const currentFallback =
-    overviewDataByYearAndPeriod[selectedYear]?.[selectedPeriod] ||
-    overviewDataByYearAndPeriod["2026"]["Jan - Jun"];
-
-  // Real aggregated values
+  // Aggregated values (default to 0 before API loads)
   const totalRevenue =
     apiData?.overview?.totalRevenue !== undefined
       ? `${Number(apiData.overview.totalRevenue).toLocaleString()} XOF`
-      : currentFallback.stats.revenue.value;
+      : "0 XOF";
 
   const totalUsers =
     apiData?.overview?.totalUsers !== undefined
       ? Number(apiData.overview.totalUsers).toLocaleString()
-      : currentFallback.stats.users.value;
+      : "0";
 
   const totalDrivers =
     apiData?.overview?.totalDrivers !== undefined
       ? Number(apiData.overview.totalDrivers).toLocaleString()
-      : currentFallback.stats.drivers.value;
+      : "0";
 
   const totalDelivery =
     apiData?.overview?.totalDelivery !== undefined
       ? Number(apiData.overview.totalDelivery).toLocaleString()
-      : currentFallback.stats.deliveries.value;
+      : "0";
 
-  // Real Charts & Tables
-  const salesChartData = apiData?.salesAnalytics
+  const revenueChange = apiData?.overview?.revenueChange ?? "0%";
+  const usersChange = apiData?.overview?.usersChange ?? "0%";
+  const driversChange = apiData?.overview?.driversChange ?? "0%";
+  const deliveriesChange = apiData?.overview?.deliveriesChange ?? "0%";
+
+  const isRevenuePositive = apiData?.overview?.isRevenuePositive ?? true;
+  const isUsersPositive = apiData?.overview?.isUsersPositive ?? true;
+  const isDriversPositive = apiData?.overview?.isDriversPositive ?? true;
+  const isDeliveriesPositive = apiData?.overview?.isDeliveriesPositive ?? true;
+
+  // Charts & Tables (default to 0 before API loads)
+  const salesChartData = apiData?.salesAnalytics && apiData.salesAnalytics.length > 0
     ? apiData.salesAnalytics
-    : currentFallback.salesAnalytics.chartData;
+    : [
+        { month: "Jan", revenue: 0, fill: "#F1F5F9" },
+        { month: "Feb", revenue: 0, fill: "#F1F5F9" },
+        { month: "Mar", revenue: 0, fill: "#F1F5F9" },
+        { month: "Apr", revenue: 0, fill: "#F1F5F9" },
+        { month: "May", revenue: 0, fill: "#10B981" },
+        { month: "Jun", revenue: 0, fill: "#F1F5F9" },
+      ];
 
   const salesTotalRev = apiData?.salesAnalytics
     ? `${apiData.salesAnalytics
         .reduce((acc: number, curr: any) => acc + (curr.revenue || 0), 0)
         .toLocaleString()} XOF`
-    : currentFallback.salesAnalytics.totalRevenue;
+    : "0 XOF";
 
   const driverPct =
     apiData?.userDistribution?.driverPercentage !== undefined
       ? Number(apiData.userDistribution.driverPercentage)
-      : currentFallback.userDistribution.driverPercent;
+      : 0;
 
   const userPct =
     apiData?.userDistribution?.userPercentage !== undefined
       ? Number(apiData.userDistribution.userPercentage)
-      : currentFallback.userDistribution.userPercent;
+      : 0;
 
-  const userDistData = apiData?.userDistribution?.data
+  const userDistData = apiData?.userDistribution?.data && apiData.userDistribution.data.length > 0
     ? apiData.userDistribution.data
-    : currentFallback.userDistribution.data;
+    : [
+        { name: "Driver", value: 0, fill: "#10B981" },
+        { name: "User", value: 0, fill: "#E2E8F0" },
+      ];
 
-  const deliveriesOverviewObj = apiData?.deliveriesOverview
-    ? apiData.deliveriesOverview
-    : currentFallback.deliveriesOverview;
+  const deliveriesOverviewObj = apiData?.deliveriesOverview ?? {
+    total: 0,
+    data: [
+      { name: "Completed", value: 0, percentage: "0%", fill: "#10B981" },
+      { name: "In Progress", value: 0, percentage: "0%", fill: "#3B82F6" },
+      { name: "Cancelled", value: 0, percentage: "0%", fill: "#EF4444" },
+      { name: "Failed", value: 0, percentage: "0%", fill: "#F59E0B" },
+    ],
+  };
 
-  const completedOrdersList = apiData?.completedOrders
-    ? apiData.completedOrders
-    : currentFallback.completedOrders;
+  const revenueBreakdownTotal = apiData?.revenueBreakdown?.total ?? "0 XOF";
+  const revenueBreakdownData = apiData?.revenueBreakdown?.data && apiData.revenueBreakdown.data.length > 0
+    ? apiData.revenueBreakdown.data
+    : [
+        { name: "Delivery Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#6366F1" },
+        { name: "Service Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#1E40AF" },
+        { name: "Surge Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#F59E0B" },
+        { name: "Other Fees", value: 0, percentage: "0%", formatted: "0 XOF", fill: "#10B981" },
+      ];
 
   return (
     <div className="space-y-6 pb-10">
@@ -218,29 +244,29 @@ export default function OverviewPage() {
         <StatCard
           title="TOTAL REVENUE"
           value={totalRevenue}
-          change={currentFallback.stats.revenue.change}
-          isPositive={currentFallback.stats.revenue.isPositive}
+          change={revenueChange}
+          isPositive={isRevenuePositive}
           icon={DollarSign}
         />
         <StatCard
           title="TOTAL USERS"
           value={totalUsers}
-          change={currentFallback.stats.users.change}
-          isPositive={currentFallback.stats.users.isPositive}
+          change={usersChange}
+          isPositive={isUsersPositive}
           icon={Users}
         />
         <StatCard
           title="TOTAL DRIVERS"
           value={totalDrivers}
-          change={currentFallback.stats.drivers.change}
-          isPositive={currentFallback.stats.drivers.isPositive}
+          change={driversChange}
+          isPositive={isDriversPositive}
           icon={Bike}
         />
         <StatCard
           title="TOTAL DELIVERY"
           value={totalDelivery}
-          change={currentFallback.stats.deliveries.change}
-          isPositive={currentFallback.stats.deliveries.isPositive}
+          change={deliveriesChange}
+          isPositive={isDeliveriesPositive}
           icon={PackageCheck}
         />
       </div>
@@ -274,8 +300,8 @@ export default function OverviewPage() {
           data={deliveriesOverviewObj.data}
         />
         <RevenueBreakdownChart
-          total={currentFallback.revenueBreakdown.total}
-          data={currentFallback.revenueBreakdown.data}
+          total={revenueBreakdownTotal}
+          data={revenueBreakdownData}
         />
       </div>
 

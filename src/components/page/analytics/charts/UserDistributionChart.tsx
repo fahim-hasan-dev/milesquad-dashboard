@@ -5,8 +5,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const defaultDistributionData = [
-  { name: "Driver", value: 65, fill: "#10B981" },
-  { name: "User", value: 35, fill: "#E2E8F0" },
+  { name: "Driver", value: 0, fill: "#10B981" },
+  { name: "User", value: 0, fill: "#E2E8F0" },
 ];
 
 const chartConfig = {
@@ -23,12 +23,12 @@ const chartConfig = {
 interface UserDistributionChartProps {
   driverPercent?: number;
   userPercent?: number;
-  data?: { name: string; value: number; fill: string }[];
+  data?: { name: string; value: number; fill?: string; color?: string }[];
 }
 
 export default function UserDistributionChart({
-  driverPercent = 65,
-  userPercent = 35,
+  driverPercent = 0,
+  userPercent = 0,
   data = defaultDistributionData,
 }: UserDistributionChartProps) {
   return (
@@ -58,7 +58,7 @@ export default function UserDistributionChart({
                 endAngle={-270}
               >
                 {data.map((entry, index) => {
-                  const color = entry.fill || (entry as any).color || (index === 0 ? "#10B981" : "#E2E8F0");
+                  const color = entry.fill || entry.color || (index === 0 ? "#10B981" : "#E2E8F0");
                   return <Cell key={`cell-${index}`} fill={color} />;
                 })}
               </Pie>

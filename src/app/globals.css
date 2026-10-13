@@ -190,3 +190,76 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* Google Translate styling cleanup & shift prevention */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+/* Hide Google Translate floating logo, circular spinner, and widgets */
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+.VIpgJd-ZVi9od-aZ2wEe,
+.VIpgJd-ZVi9od-aZ2wEe-OiiCO,
+.VIpgJd-ZVi9od-aZ2wEe-Jt5cK,
+.VIpgJd-ZVi9od-ORHb,
+.goog-te-spinner-pos,
+.goog-te-spinner,
+.goog-te-spinner-animation,
+.goog-logo-link,
+.goog-te-gadget-icon {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide select wrapper offscreen without killing select element */
+#google_translate_element,
+#google-translate-container {
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  z-index: -9999 !important;
+}
+
+/* Hide Google Translate hover tooltip & balloon frame */
+#goog-gt-tt,
+#goog-gt-tt:hover,
+.goog-tooltip,
+.goog-tooltip:hover,
+.goog-te-balloon-frame {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Disable text selection / hover highlight on translated text */
+.goog-text-highlight,
+font.goog-text-highlight,
+span.goog-text-highlight,
+font,
+font:hover,
+font:focus,
+font:active,
+font[style] {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  text-shadow: none !important;
+}

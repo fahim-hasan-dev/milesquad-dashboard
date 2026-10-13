@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Providers from "@/lib/providers";
+import GoogleTranslate from "@/components/common/GoogleTranslate";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body
         className={`${poppins.className} antialiased bg-gradient-to-tl from-[#d3cfc5] to-[#e9e7e2] min-h-screen`}
       >
+        <GoogleTranslate />
         <Providers>{children}</Providers>
       </body>
     </html>

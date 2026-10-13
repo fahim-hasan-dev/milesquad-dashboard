@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { getCookie } from "cookies-next";
 import DashboardBreadcrumb from "@/components/layout/dashboard/navbar/dashboard-breadcrumb";
+import LanguageSwitcher from "@/components/layout/dashboard/navbar/LanguageSwitcher";
 import NotificationDropdown from "@/components/layout/dashboard/navbar/NotificationDropdown";
 import ChangeNameModal from "@/components/modals/ChangeNameModal";
 import ChangePictureModal from "@/components/modals/ChangePictureModal";
@@ -126,7 +127,10 @@ export default function DashboardLayout({
             <DashboardBreadcrumb />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+
             {/* Notification Bell Dropdown */}
             <NotificationDropdown />
 
