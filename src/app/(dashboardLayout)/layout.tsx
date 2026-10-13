@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { getCookie } from "cookies-next";
@@ -27,6 +27,7 @@ import { useAuthContext, AdminUser } from "@/contexts/AuthContext";
 import { getImageUrl } from "@/utils/imageUrl";
 import { registerFcmToken } from "@/utils/fcm";
 import { onForegroundMessage } from "@/lib/firebase";
+import TopProgressBar from "@/components/common/TopProgressBar";
 
 export default function DashboardLayout({
   children,
@@ -37,12 +38,10 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
   const currentUserObj = (typeof user === "object" && user !== null ? user : {}) as AdminUser;
   const adminName = currentUserObj.name || (typeof user === "string" ? user : "Admin");
   const adminAvatar = getImageUrl(currentUserObj.image);
   const adminRole = currentUserObj.role || "Admin";
-
   const userRole = (currentUserObj.role || "").toLowerCase();
   const isSubAdmin = userRole === "sub_admin";
   const restrictedPathsForSubAdmin = ["/pricing", "/transactions", "/admins"];
@@ -113,6 +112,9 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider className="no-scrollbar bg-[#F8FAFC]">
+      <Suspense fallback={null}>
+        <TopProgressBar/>
+      </Suspense>
       {/* App Sidebar */}
       <AppSidebar />
 

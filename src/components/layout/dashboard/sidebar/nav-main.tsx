@@ -76,7 +76,7 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
                     }`}
                   >
-                    <Link href={item.url} className="flex items-center gap-3 w-full">
+                    <Link href={item.url} prefetch={true} className="flex items-center gap-3 w-full">
                       <item.icon className="h-4 w-4 shrink-0" />
                       <span>{item.title}</span>
                     </Link>

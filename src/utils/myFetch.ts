@@ -25,7 +25,30 @@ interface FetchOptions {
   token?: string;
   headers?: Record<string, string>;
   cache?: RequestCache;
+  forceFresh?: boolean;
+  skipCache?: boolean;
+  cacheTtlMs?: number;
 }
+
+interface CacheEntry {
+  timestamp: number;
+  data: FetchResponse;
+}
+
+const apiCache = new Map<string, CacheEntry>();
+const DEFAULT_CACHE_TTL = 45 * 1000; // 45 seconds TTL
+
+export const clearApiCache = (pattern?: string) => {
+  if (!pattern) {
+    apiCache.clear();
+  } else {
+    for (const key of apiCache.keys()) {
+      if (key.includes(pattern)) {
+        apiCache.delete(key);
+      }
+    }
+  }
+};
 
 export const myFetch = async (
   url: string,
@@ -36,6 +59,9 @@ export const myFetch = async (
     token,
     headers = {},
     cache = "no-store",
+    forceFresh = false,
+    skipCache = false,
+    cacheTtlMs = DEFAULT_CACHE_TTL,
   }: FetchOptions = {}
 ): Promise<FetchResponse> => {
   // Retrieve access token from parameter, cookies, or localStorage
@@ -43,6 +69,19 @@ export const myFetch = async (
     token ||
     (getCookie("accessToken") as string) ||
     (typeof window !== "undefined" ? localStorage.getItem("accessToken") || undefined : undefined);
+
+  const fullUrl = url.startsWith("/") ? `${config.baseURL}${url}` : `${config.baseURL}/${url}`;
+  const cacheKey = `${fullUrl}_${accessToken || "anon"}`;
+
+  // If mutation (POST/PATCH/DELETE/PUT), invalidate cache
+  if (method !== "GET") {
+    clearApiCache();
+  } else if (!forceFresh && !skipCache) {
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < cacheTtlMs) {
+      return cached.data;
+    }
+  }
 
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const hasBody = body !== undefined && method !== "GET";
@@ -55,7 +94,6 @@ export const myFetch = async (
   };
 
   try {
-    const fullUrl = url.startsWith("/") ? `${config.baseURL}${url}` : `${config.baseURL}/${url}`;
     const response = await fetch(fullUrl, {
       method,
       headers: reqHeaders,
@@ -112,7 +150,7 @@ export const myFetch = async (
     }
 
     if (response.ok) {
-      return {
+      const result: FetchResponse = {
         success: data?.success ?? true,
         message: data?.message,
         data: data?.data,
@@ -120,6 +158,12 @@ export const myFetch = async (
         error: null,
         statusCode: response.status,
       };
+
+      if (method === "GET") {
+        apiCache.set(cacheKey, { timestamp: Date.now(), data: result });
+      }
+
+      return result;
     }
 
     return {
